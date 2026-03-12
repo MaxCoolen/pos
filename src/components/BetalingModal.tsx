@@ -8,6 +8,7 @@ import { useCartStore } from '../store/useCartStore'
 import { useTransactieStore } from '../store/useTransactieStore'
 import { useKortingStore } from '../store/useKortingStore'
 import { usePersoneelStore } from '../store/usePersoneelStore'
+import { useAppStore } from '../store/useAppStore'
 import { berekenKortingen, berekenItemKortingMap } from '../utils/kortingBerekening'
 import { BonView } from './BonView'
 import type { Betaalmethode, BonData, Transactie } from '../types'
@@ -356,6 +357,7 @@ export function BetalingModal() {
   const { voegTransactieToe } = useTransactieStore()
   const { kortingen } = useKortingStore()
   const { medewerkers, activeMedewerkerId } = usePersoneelStore()
+  const currentStoreId = useAppStore((s) => s.currentStoreId)
 
   const [scherm, setScherm] = useState<Scherm>('methode')
   const [bonData, setBonData] = useState<BonData | null>(null)
@@ -415,6 +417,10 @@ export function BetalingModal() {
       btw: parseFloat(btwNaKorting.toFixed(2)),
       betaalmethode: methode,
       medewerker: activeMedewerker?.naam.split(' ')[0],
+      storeId: currentStoreId ?? undefined,
+      employeeId: activeMedewerkerId ?? undefined,
+      betaaldCents: betaaldCents,
+      wisselgeldCents: betaaldCents != null ? betaaldCents - nettoInCents : undefined,
     }
 
     voegTransactieToe(transactie)

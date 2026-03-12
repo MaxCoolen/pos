@@ -55,6 +55,11 @@ export interface Transactie {
   btw: number
   betaalmethode?: Betaalmethode
   medewerker?: string              // first name of the active employee
+  // multi-store / multi-terminal
+  storeId?: string
+  employeeId?: string
+  betaaldCents?: number
+  wisselgeldCents?: number
   // refund support
   isTerugboeking?: boolean         // true = this is a refund record
   origineelTransactieId?: string   // which transaction was refunded

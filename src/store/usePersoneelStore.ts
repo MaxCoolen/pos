@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import type { RealtimeChannel } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase'
+import { useAppStore } from './useAppStore'
 
 export type MedewerkerRol = 'admin' | 'medewerker'
 
@@ -12,7 +15,6 @@ export interface Medewerker {
 }
 
 const KLEUREN = ['#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EF4444', '#EC4899', '#14B8A6', '#F97316']
-
 export { KLEUREN as MEDEWERKER_KLEUREN }
 
 const DEMO_MEDEWERKERS: Medewerker[] = [
@@ -22,45 +24,122 @@ const DEMO_MEDEWERKERS: Medewerker[] = [
   { id: '4', naam: 'Mark Peters',    initialen: 'MP', kleur: '#8B5CF6', rol: 'medewerker' },
 ]
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function dbToMedewerker(row: any): Medewerker {
+  return {
+    id: row.id as string,
+    naam: row.naam as string,
+    initialen: row.initialen as string,
+    kleur: row.kleur as string,
+    rol: (row.rol as MedewerkerRol) ?? 'medewerker',
+  }
+}
+
 interface PersoneelStore {
   medewerkers: Medewerker[]
   activeMedewerkerId: string | null
+  _channel: RealtimeChannel | null
   setActiveMedewerker: (id: string | null) => void
-  voegMedewerkerToe: (m: Omit<Medewerker, 'id'>) => void
-  updateMedewerker: (id: string, updates: Partial<Omit<Medewerker, 'id'>>) => void
-  verwijderMedewerker: (id: string) => void
+  voegMedewerkerToe: (m: Omit<Medewerker, 'id'>) => Promise<void>
+  updateMedewerker: (id: string, updates: Partial<Omit<Medewerker, 'id'>>) => Promise<void>
+  verwijderMedewerker: (id: string) => Promise<void>
+  initialiseer: (storeId: string) => Promise<void>
 }
 
 export const usePersoneelStore = create<PersoneelStore>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       medewerkers: DEMO_MEDEWERKERS,
       activeMedewerkerId: null,
+      _channel: null,
 
       setActiveMedewerker: (id) => set({ activeMedewerkerId: id }),
 
-      voegMedewerkerToe: (m) =>
-        set((state) => ({
-          medewerkers: [...state.medewerkers, { ...m, id: Date.now().toString() }],
-        })),
+      voegMedewerkerToe: async (m) => {
+        const storeId = useAppStore.getState().currentStoreId
+        if (supabase && storeId) {
+          const { data, error } = await supabase
+            .from('employees')
+            .insert({ store_id: storeId, naam: m.naam, initialen: m.initialen, kleur: m.kleur, rol: m.rol, aktief: true })
+            .select()
+            .single()
+          if (!error && data) {
+            set((state) => ({ medewerkers: [...state.medewerkers, dbToMedewerker(data)] }))
+          }
+        } else {
+          set((state) => ({
+            medewerkers: [...state.medewerkers, { ...m, id: Date.now().toString() }],
+          }))
+        }
+      },
 
-      updateMedewerker: (id, updates) =>
+      updateMedewerker: async (id, updates) => {
         set((state) => ({
-          medewerkers: state.medewerkers.map((m) =>
-            m.id === id ? { ...m, ...updates } : m
-          ),
-        })),
+          medewerkers: state.medewerkers.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+        }))
+        if (supabase) {
+          await supabase.from('employees').update(updates).eq('id', id)
+        }
+      },
 
-      verwijderMedewerker: (id) =>
+      verwijderMedewerker: async (id) => {
         set((state) => ({
           medewerkers: state.medewerkers.filter((m) => m.id !== id),
-          activeMedewerkerId:
-            state.activeMedewerkerId === id ? null : state.activeMedewerkerId,
-        })),
+          activeMedewerkerId: state.activeMedewerkerId === id ? null : state.activeMedewerkerId,
+        }))
+        if (supabase) {
+          await supabase.from('employees').update({ aktief: false }).eq('id', id)
+        }
+      },
+
+      initialiseer: async (storeId: string) => {
+        if (!supabase) return
+
+        const { _channel } = get()
+        if (_channel) await supabase.removeChannel(_channel)
+
+        const { data, error } = await supabase
+          .from('employees')
+          .select('*')
+          .eq('store_id', storeId)
+          .eq('aktief', true)
+        if (!error && data) {
+          set({ medewerkers: data.map(dbToMedewerker) })
+        }
+
+        const channel = supabase
+          .channel(`store-employees-${storeId}`)
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'employees', filter: `store_id=eq.${storeId}` },
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (payload: any) => {
+              if (payload.eventType === 'INSERT' && payload.new.aktief) {
+                set((s) => ({ medewerkers: [...s.medewerkers, dbToMedewerker(payload.new)] }))
+              } else if (payload.eventType === 'UPDATE') {
+                if (!payload.new.aktief) {
+                  set((s) => ({ medewerkers: s.medewerkers.filter((m) => m.id !== payload.new.id) }))
+                } else {
+                  set((s) => ({
+                    medewerkers: s.medewerkers.map((m) =>
+                      m.id === payload.new.id ? dbToMedewerker(payload.new) : m
+                    ),
+                  }))
+                }
+              } else if (payload.eventType === 'DELETE') {
+                set((s) => ({ medewerkers: s.medewerkers.filter((m) => m.id !== payload.old.id) }))
+              }
+            }
+          )
+          .subscribe()
+
+        set({ _channel: channel })
+      },
     }),
     {
       name: 'pos-personeel',
       version: 2,
+      partialize: (s) => ({ medewerkers: s.medewerkers }),
       migrate: (stored: unknown) => {
         const state = stored as { medewerkers?: Medewerker[] } | null
         if (!Array.isArray(state?.medewerkers)) return { medewerkers: DEMO_MEDEWERKERS }

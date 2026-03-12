@@ -1,7 +1,10 @@
-import { LayoutGrid, Package, BarChart2, Settings, ChevronLeft, ChevronRight, Tag, Monitor } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { LayoutGrid, Package, BarChart2, Settings, ChevronLeft, ChevronRight, Tag, Monitor, LogOut, Download } from 'lucide-react'
 import { useAppStore } from '../../store/useAppStore'
 import { useInstellingenStore } from '../../store/useInstellingenStore'
 import { usePersoneelStore } from '../../store/usePersoneelStore'
+import { useCartStore } from '../../store/useCartStore'
+import { useAuthStore } from '../../store/useAuthStore'
 import type { Page } from '../../types'
 
 const menuItems: { id: Page; label: string; icon: React.ElementType }[] = [
@@ -16,9 +19,22 @@ export function Sidebar() {
   const { huidigePagina, sidebarIngeklapt, navigeerNaar, toggleSidebar } = useAppStore()
   const { bedrijfsnaam, logo } = useInstellingenStore()
   const { medewerkers, activeMedewerkerId, setActiveMedewerker } = usePersoneelStore()
+  const { laadMedewerkerCart, ontkoppelMedewerker } = useCartStore()
+  const uitloggen = useAuthStore((s) => s.uitloggen)
 
   const collapsed = sidebarIngeklapt
   const activeMedewerker = medewerkers.find((m) => m.id === activeMedewerkerId) ?? null
+
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null)
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setInstallPrompt(e as BeforeInstallPromptEvent)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
 
   return (
     <aside
@@ -128,6 +144,22 @@ export function Sidebar() {
         </button>
       </div>
 
+      {/* ── Install PWA button ── */}
+      {installPrompt && (
+        <div className="px-2 pb-1">
+          <button
+            onClick={() => { void installPrompt.prompt(); setInstallPrompt(null) }}
+            title="App installeren"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl w-full transition-all duration-150 active:scale-95 text-slate-400 hover:bg-white/[0.07] hover:text-white ${collapsed ? 'justify-center' : ''}`}
+          >
+            <Download size={18} className="shrink-0" />
+            {!collapsed && (
+              <span className="font-medium text-sm truncate">App installeren</span>
+            )}
+          </button>
+        </div>
+      )}
+
       {/* ── Employee section ── */}
       <div className="mt-auto px-2 pt-3 border-t border-white/[0.06]">
         {!collapsed && (
@@ -142,7 +174,15 @@ export function Sidebar() {
             return (
               <button
                 key={m.id}
-                onClick={() => setActiveMedewerker(isActive ? null : m.id)}
+                onClick={() => {
+                  const newId = isActive ? null : m.id
+                  setActiveMedewerker(newId)
+                  if (newId) {
+                    void laadMedewerkerCart(newId)
+                  } else {
+                    void ontkoppelMedewerker()
+                  }
+                }}
                 title={collapsed ? m.naam : undefined}
                 className={`flex items-center gap-2.5 rounded-xl transition-all duration-150 active:scale-95 min-h-[40px] ${
                   collapsed ? 'justify-center w-10 h-10 p-0' : 'px-2 py-2 w-full'
@@ -175,6 +215,16 @@ export function Sidebar() {
             Actief: {activeMedewerker.naam}
           </p>
         )}
+
+        {/* Logout button */}
+        <button
+          onClick={uitloggen}
+          title="Uitloggen"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-xl w-full mt-2 transition-all duration-150 active:scale-95 text-slate-600 hover:bg-white/[0.07] hover:text-slate-300 ${collapsed ? 'justify-center' : ''}`}
+        >
+          <LogOut size={16} className="shrink-0" />
+          {!collapsed && <span className="font-medium text-xs truncate">Uitloggen</span>}
+        </button>
       </div>
     </aside>
   )
