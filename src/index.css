@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply antialiased;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* ── Print: show only #bon-content ── */
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+  #bon-content,
+  #bon-content * {
+    visibility: visible !important;
+  }
+  #bon-content {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    width: 80mm;
+    padding: 4mm;
+    background: white !important;
+    color: black !important;
+    font-size: 11pt;
+  }
+}
