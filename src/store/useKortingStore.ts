@@ -66,7 +66,10 @@ export const useKortingStore = create<KortingStore>()(
             .select()
             .single()
           if (!error && data) {
-            set((state) => ({ kortingen: [...state.kortingen, dbToKorting(data)] }))
+            set((state) => {
+              if (state.kortingen.some((k) => k.id === data.id)) return state
+              return { kortingen: [...state.kortingen, dbToKorting(data)] }
+            })
           }
         } else {
           set((state) => ({
@@ -138,7 +141,10 @@ export const useKortingStore = create<KortingStore>()(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (payload: any) => {
               if (payload.eventType === 'INSERT') {
-                set((s) => ({ kortingen: [...s.kortingen, dbToKorting(payload.new)] }))
+                set((s) => {
+                  if (s.kortingen.some((k) => k.id === payload.new.id)) return s
+                  return { kortingen: [...s.kortingen, dbToKorting(payload.new)] }
+                })
               } else if (payload.eventType === 'UPDATE') {
                 set((s) => ({
                   kortingen: s.kortingen.map((k) => k.id === payload.new.id ? dbToKorting(payload.new) : k),

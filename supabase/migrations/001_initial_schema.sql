@@ -2,7 +2,7 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ─── stores ───────────────────────────────────────────────────────────────────
-CREATE TABLE stores (
+CREATE TABLE IF NOT EXISTS stores (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   naam       TEXT NOT NULL,
   adres      TEXT,
@@ -11,7 +11,7 @@ CREATE TABLE stores (
 );
 
 -- ─── employees ────────────────────────────────────────────────────────────────
-CREATE TABLE employees (
+CREATE TABLE IF NOT EXISTS employees (
   id        UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   store_id  UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   naam      TEXT NOT NULL,
@@ -22,7 +22,7 @@ CREATE TABLE employees (
 );
 
 -- ─── products ─────────────────────────────────────────────────────────────────
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   store_id   UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   naam       TEXT NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE products (
 );
 
 -- ─── categories ───────────────────────────────────────────────────────────────
-CREATE TABLE categories (
+CREATE TABLE IF NOT EXISTS categories (
   id       UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   naam     TEXT NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE categories (
 );
 
 -- ─── discounts ────────────────────────────────────────────────────────────────
-CREATE TABLE discounts (
+CREATE TABLE IF NOT EXISTS discounts (
   id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   store_id      UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   naam          TEXT NOT NULL,
@@ -62,7 +62,7 @@ CREATE TABLE discounts (
 );
 
 -- ─── carts ────────────────────────────────────────────────────────────────────
-CREATE TABLE carts (
+CREATE TABLE IF NOT EXISTS carts (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   store_id    UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   employee_id UUID NOT NULL REFERENCES employees(id) ON DELETE CASCADE,
@@ -72,11 +72,11 @@ CREATE TABLE carts (
 );
 
 -- One active cart per employee per store
-CREATE UNIQUE INDEX carts_active_unique ON carts (store_id, employee_id)
+CREATE UNIQUE INDEX IF NOT EXISTS carts_active_unique ON carts (store_id, employee_id)
   WHERE status = 'active';
 
 -- ─── cart_items ───────────────────────────────────────────────────────────────
-CREATE TABLE cart_items (
+CREATE TABLE IF NOT EXISTS cart_items (
   id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   cart_id            UUID NOT NULL REFERENCES carts(id) ON DELETE CASCADE,
   product_id         UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
@@ -89,7 +89,7 @@ CREATE TABLE cart_items (
 );
 
 -- ─── transactions ─────────────────────────────────────────────────────────────
-CREATE TABLE transactions (
+CREATE TABLE IF NOT EXISTS transactions (
   id                      UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   store_id                UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   employee_id             UUID REFERENCES employees(id) ON DELETE SET NULL,
@@ -106,7 +106,7 @@ CREATE TABLE transactions (
 );
 
 -- ─── transaction_lines ────────────────────────────────────────────────────────
-CREATE TABLE transaction_lines (
+CREATE TABLE IF NOT EXISTS transaction_lines (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   transaction_id UUID NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
   naam           TEXT NOT NULL,
@@ -116,7 +116,7 @@ CREATE TABLE transaction_lines (
 );
 
 -- ─── store_settings ───────────────────────────────────────────────────────────
-CREATE TABLE store_settings (
+CREATE TABLE IF NOT EXISTS store_settings (
   store_id      UUID PRIMARY KEY REFERENCES stores(id) ON DELETE CASCADE,
   bedrijfsnaam  TEXT NOT NULL DEFAULT 'Mijn POS',
   adres         TEXT NOT NULL DEFAULT '',
@@ -136,33 +136,82 @@ CREATE TABLE store_settings (
 
 -- ─── Row Level Security ───────────────────────────────────────────────────────
 -- Permissive policies — tighten with proper auth later
-ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
-ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
-ALTER TABLE products ENABLE ROW LEVEL SECURITY;
-ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
-ALTER TABLE discounts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE carts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE cart_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stores           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employees        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE categories       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE discounts        ENABLE ROW LEVEL SECURITY;
+ALTER TABLE carts            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cart_items       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE transactions     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transaction_lines ENABLE ROW LEVEL SECURITY;
-ALTER TABLE store_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE store_settings   ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "allow_all" ON stores           FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON employees        FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON products         FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON categories       FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON discounts        FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON carts            FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON cart_items       FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON transactions     FOR ALL USING (TRUE) WITH CHECK (TRUE);
+DROP POLICY IF EXISTS "allow_all" ON stores;
+DROP POLICY IF EXISTS "allow_all" ON employees;
+DROP POLICY IF EXISTS "allow_all" ON products;
+DROP POLICY IF EXISTS "allow_all" ON categories;
+DROP POLICY IF EXISTS "allow_all" ON discounts;
+DROP POLICY IF EXISTS "allow_all" ON carts;
+DROP POLICY IF EXISTS "allow_all" ON cart_items;
+DROP POLICY IF EXISTS "allow_all" ON transactions;
+DROP POLICY IF EXISTS "allow_all" ON transaction_lines;
+DROP POLICY IF EXISTS "allow_all" ON store_settings;
+
+CREATE POLICY "allow_all" ON stores            FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON employees         FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON products          FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON categories        FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON discounts         FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON carts             FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON cart_items        FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON transactions      FOR ALL USING (TRUE) WITH CHECK (TRUE);
 CREATE POLICY "allow_all" ON transaction_lines FOR ALL USING (TRUE) WITH CHECK (TRUE);
-CREATE POLICY "allow_all" ON store_settings   FOR ALL USING (TRUE) WITH CHECK (TRUE);
+CREATE POLICY "allow_all" ON store_settings    FOR ALL USING (TRUE) WITH CHECK (TRUE);
 
 -- ─── Realtime ─────────────────────────────────────────────────────────────────
-ALTER PUBLICATION supabase_realtime ADD TABLE products;
-ALTER PUBLICATION supabase_realtime ADD TABLE categories;
-ALTER PUBLICATION supabase_realtime ADD TABLE discounts;
-ALTER PUBLICATION supabase_realtime ADD TABLE cart_items;
-ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
-ALTER PUBLICATION supabase_realtime ADD TABLE employees;
-ALTER PUBLICATION supabase_realtime ADD TABLE store_settings;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'products'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE products;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'categories'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE categories;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'discounts'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE discounts;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'cart_items'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE cart_items;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'transactions'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE transactions;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'employees'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE employees;
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime' AND tablename = 'store_settings'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE store_settings;
+  END IF;
+END $$;

@@ -1,5 +1,17 @@
 export type BtwPercentage = 0 | 9 | 21
 
+export interface ProductVariatie {
+  id: string
+  naam: string
+  meerprijs: number   // additional price on top of base price
+}
+
+export interface ProductExtra {
+  id: string
+  naam: string
+  meerprijs: number   // 0 = free extra
+}
+
 export interface Product {
   id: string
   naam: string
@@ -8,6 +20,8 @@ export interface Product {
   prijsType: 'stuk' | 'kg'
   btw: BtwPercentage
   kleur?: string
+  variaties?: ProductVariatie[]
+  extras?: ProductExtra[]
 }
 
 export interface CartItem {

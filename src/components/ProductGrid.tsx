@@ -1,8 +1,10 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useProductStore } from '../store/useProductStore'
 import { useCartStore } from '../store/useCartStore'
 import { useCategorieStore } from '../store/useCategorieStore'
 import { ProductTile } from './ProductTile'
+import { VariatieModal } from './VariatieModal'
+import type { Product } from '../types'
 
 interface ProductGridProps {
   actieveCategorie: string
@@ -12,6 +14,7 @@ export function ProductGrid({ actieveCategorie }: ProductGridProps) {
   const producten = useProductStore((s) => s.producten)
   const categorieen = useCategorieStore((s) => s.categorieen)
   const voegToe = useCartStore((s) => s.voegToe)
+  const [kiesProduct, setKiesProduct] = useState<Product | null>(null)
 
   // Build a lookup: category name → { volgorde, kleur }
   const categorieMap = useMemo(() => {
@@ -46,16 +49,35 @@ export function ProductGrid({ actieveCategorie }: ProductGridProps) {
   }
 
   return (
-    // Doubled column count vs. original → tiles are ~50% smaller
-    <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-      {gefilterd.map((product) => (
-        <ProductTile
-          key={product.id}
-          product={product}
-          categorieKleur={categorieMap[product.categorie]?.kleur}
-          onToevoegen={() => voegToe(product)}
+    <>
+      {/* Doubled column count vs. original → tiles are ~50% smaller */}
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+        {gefilterd.map((product) => (
+          <ProductTile
+            key={product.id}
+            product={product}
+            categorieKleur={categorieMap[product.categorie]?.kleur}
+            onToevoegen={() => {
+              const heeftKeuze =
+                (product.variaties?.length ?? 0) > 0 ||
+                (product.extras?.length ?? 0) > 0
+              if (heeftKeuze) {
+                setKiesProduct(product)
+              } else {
+                voegToe(product)
+              }
+            }}
+          />
+        ))}
+      </div>
+
+      {kiesProduct && (
+        <VariatieModal
+          product={kiesProduct}
+          onToevoegen={voegToe}
+          onSluiten={() => setKiesProduct(null)}
         />
-      ))}
-    </div>
+      )}
+    </>
   )
 }

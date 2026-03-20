@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { usePromoStore } from '../store/usePromoStore'
+import { usePromoStore, type Promotie } from '../store/usePromoStore'
 import { useKortingStore } from '../store/useKortingStore'
 import { useInstellingenStore } from '../store/useInstellingenStore'
-import { berekenKortingen } from '../utils/kortingBerekening'
+import { berekenKortingen, berekenItemKortingMap } from '../utils/kortingBerekening'
 import { PromoSlideshow } from '../components/PromoSlideshow'
 import type { CartItem } from '../types'
 
@@ -21,35 +21,359 @@ function leesItems(): CartItem[] {
   }
 }
 
+// ─── font injection ───────────────────────────────────────────────────────────
+
+function useFont() {
+  useEffect(() => {
+    if (document.getElementById('cd-font')) return
+    const link = document.createElement('link')
+    link.id = 'cd-font'
+    link.rel = 'stylesheet'
+    link.href =
+      'https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap'
+    document.head.appendChild(link)
+  }, [])
+}
+
+// ─── empty state ──────────────────────────────────────────────────────────────
+
+function EmptyDisplay({
+  promoties,
+  bedrijfsnaam,
+  logo,
+}: {
+  promoties: Promotie[]
+  bedrijfsnaam: string
+  logo: string | null
+}) {
+  return (
+    <div className="h-screen w-screen bg-black overflow-hidden relative">
+      <PromoSlideshow promoties={promoties} className="w-full h-full" />
+      <div
+        className="absolute bottom-0 left-0 right-0 px-10 py-8 flex items-center gap-4"
+        style={{
+          background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 100%)',
+        }}
+      >
+        {logo && (
+          <img src={logo} alt={bedrijfsnaam} className="max-h-9 w-auto object-contain" />
+        )}
+        <p
+          style={{
+            fontFamily: "'Figtree', system-ui, sans-serif",
+            fontSize: 24,
+            fontWeight: 700,
+            color: '#fff',
+            letterSpacing: '-0.01em',
+          }}
+        >
+          {bedrijfsnaam}
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// ─── cart panel ───────────────────────────────────────────────────────────────
+
+function CartPanel({
+  items,
+  bedrijfsnaam,
+  logo,
+  kortingMap,
+  brutoBedrag,
+  nettoBedrag,
+  kortingBedrag,
+  heeftKorting,
+}: {
+  items: CartItem[]
+  bedrijfsnaam: string
+  logo: string | null
+  kortingMap: Map<string, number>
+  brutoBedrag: number
+  nettoBedrag: number
+  kortingBedrag: number
+  heeftKorting: boolean
+}) {
+  const ff = "'Figtree', system-ui, sans-serif"
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        backgroundColor: '#ffffff',
+        borderRight: '1px solid #e5e5e5',
+        fontFamily: ff,
+      }}
+    >
+      {/* Header */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          padding: '20px 28px',
+          borderBottom: '1px solid #eeeeee',
+          flexShrink: 0,
+        }}
+      >
+        {logo && (
+          <img
+            src={logo}
+            alt={bedrijfsnaam}
+            style={{ maxHeight: 36, width: 'auto', objectFit: 'contain', flexShrink: 0 }}
+          />
+        )}
+        <div style={{ minWidth: 0 }}>
+          <p
+            style={{
+              fontSize: 18,
+              fontWeight: 700,
+              color: '#111',
+              letterSpacing: '-0.01em',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              lineHeight: 1.2,
+            }}
+          >
+            {bedrijfsnaam}
+          </p>
+          <p
+            style={{
+              fontSize: 11,
+              fontWeight: 500,
+              color: '#aaa',
+              letterSpacing: '0.1em',
+              marginTop: 2,
+              textTransform: 'uppercase',
+            }}
+          >
+            Uw bestelling
+          </p>
+        </div>
+      </div>
+
+      {/* Items */}
+      <div
+        style={{
+          flex: 1,
+          overflowY: 'auto',
+          scrollbarWidth: 'none',
+        }}
+      >
+        {items.map((item, idx) => {
+          const isKg          = item.product.prijsType === 'kg'
+          const lineTotal     = item.product.prijs * item.aantal
+          const itemKorting   = kortingMap.get(item.product.id) ?? 0
+          const heeftItemKorting = itemKorting > 0.005
+          const nettoLine     = Math.max(0, lineTotal - itemKorting)
+
+          return (
+            <div
+              key={item.product.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                padding: '18px 28px',
+                borderBottom: idx < items.length - 1 ? '1px solid #f0f0f0' : 'none',
+              }}
+            >
+              {/* Left: naam + qty */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 700,
+                    color: '#111',
+                    lineHeight: 1.25,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {item.product.naam}
+                </p>
+                <p
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 500,
+                    color: '#999',
+                    marginTop: 3,
+                    letterSpacing: 0,
+                  }}
+                >
+                  {isKg
+                    ? `${Math.round(item.aantal * 1000)} g · ${fmt(item.product.prijs)}/kg`
+                    : `${item.aantal}× · ${fmt(item.product.prijs)}/st`}
+                </p>
+              </div>
+
+              {/* Right: price */}
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                {heeftItemKorting ? (
+                  <>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 500,
+                        color: '#bbb',
+                        textDecoration: 'line-through',
+                        lineHeight: 1,
+                      }}
+                    >
+                      {fmt(lineTotal)}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 22,
+                        fontWeight: 700,
+                        color: '#16a34a',
+                        lineHeight: 1.2,
+                        marginTop: 2,
+                        letterSpacing: '-0.01em',
+                      }}
+                    >
+                      {fmt(nettoLine)}
+                    </p>
+                  </>
+                ) : (
+                  <p
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 700,
+                      color: '#111',
+                      lineHeight: 1.25,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    {fmt(lineTotal)}
+                  </p>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Totals */}
+      <div
+        style={{
+          flexShrink: 0,
+          borderTop: '2px solid #eeeeee',
+          padding: '18px 28px 24px',
+          backgroundColor: '#fafafa',
+        }}
+      >
+        {heeftKorting && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 6,
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 500, color: '#aaa' }}>Subtotaal</span>
+            <span
+              style={{
+                fontSize: 15,
+                fontWeight: 500,
+                color: '#bbb',
+                textDecoration: 'line-through',
+              }}
+            >
+              {fmt(brutoBedrag)}
+            </span>
+          </div>
+        )}
+
+        {heeftKorting && (
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 14,
+            }}
+          >
+            <span style={{ fontSize: 13, fontWeight: 500, color: '#16a34a' }}>Korting</span>
+            <span style={{ fontSize: 15, fontWeight: 600, color: '#16a34a' }}>
+              −{fmt(kortingBedrag)}
+            </span>
+          </div>
+        )}
+
+        {/* Total row */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: 8,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 18,
+              fontWeight: 600,
+              color: '#555',
+              letterSpacing: '-0.005em',
+            }}
+          >
+            Totaal
+          </span>
+          <span
+            style={{
+              fontSize: 52,
+              fontWeight: 800,
+              color: '#111',
+              letterSpacing: '-0.03em',
+              lineHeight: 1,
+              tabularNums: true,
+              fontVariantNumeric: 'tabular-nums',
+            } as React.CSSProperties}
+          >
+            {fmt(nettoBedrag)}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── main page ────────────────────────────────────────────────────────────────
+
 export function CustomerDisplayPage() {
-  const { promoties } = usePromoStore()
-  const { kortingen } = useKortingStore()
+  useFont()
+
+  const { promoties }          = usePromoStore()
+  const { kortingen }          = useKortingStore()
   const { bedrijfsnaam, logo } = useInstellingenStore()
 
   const [items, setItems] = useState<CartItem[]>(leesItems)
 
-  // Request fullscreen on mount (triggered by user gesture from opening the tab)
+  // Fullscreen on mount
   useEffect(() => {
     const el = document.documentElement
-    if (el.requestFullscreen) {
-      el.requestFullscreen().catch(() => {
-        // Silently ignore if browser denies fullscreen
-      })
-    }
+    if (el.requestFullscreen) el.requestFullscreen().catch(() => {})
   }, [])
 
-  // Cross-tab sync via storage event
+  // Cross-tab sync
   useEffect(() => {
     function onStorage(e: StorageEvent) {
-      if (e.key === KLANTENDISP_KEY) {
-        setItems(e.newValue ? JSON.parse(e.newValue) : [])
-      }
+      if (e.key === KLANTENDISP_KEY) setItems(e.newValue ? JSON.parse(e.newValue) : [])
     }
     window.addEventListener('storage', onStorage)
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
-  // Poll every second as fallback
+  // Poll fallback
   useEffect(() => {
     const id = setInterval(() => setItems(leesItems()), 1000)
     return () => clearInterval(id)
@@ -57,125 +381,70 @@ export function CustomerDisplayPage() {
 
   const { totaal: kortingBedrag } = useMemo(
     () => berekenKortingen(items, kortingen),
-    [items, kortingen]
+    [items, kortingen],
+  )
+  const kortingMap = useMemo(
+    () => berekenItemKortingMap(items, kortingen),
+    [items, kortingen],
   )
 
-  const brutoBedrag = items.reduce(
-    (s, i) => s + i.product.prijs * i.aantal,
-    0
-  )
-  const nettoBedrag = Math.max(0, brutoBedrag - kortingBedrag)
+  const brutoBedrag  = items.reduce((s, i) => s + i.product.prijs * i.aantal, 0)
+  const nettoBedrag  = Math.max(0, brutoBedrag - kortingBedrag)
   const heeftKorting = kortingBedrag > 0.005
-
   const actiefPromos = promoties.filter((p) => p.actief)
-  const heeftItems = items.length > 0
-
-  // ── Mode 1: Empty cart → full-screen slideshow ────────────────────────────
+  const heeftItems   = items.length > 0
 
   if (!heeftItems) {
     return (
-      <div className="h-screen w-screen bg-slate-900 overflow-hidden relative">
-        <PromoSlideshow promoties={actiefPromos} className="w-full h-full" />
-
-        {/* Branding overlay (bottom) */}
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-10 py-6 flex items-end">
-          <div className="flex items-center gap-3">
-            {logo && (
-              <img src={logo} alt={bedrijfsnaam} className="max-h-8 w-auto object-contain" />
-            )}
-            <p className="text-white font-black text-xl tracking-tight">{bedrijfsnaam}</p>
-          </div>
-        </div>
-      </div>
+      <EmptyDisplay
+        promoties={actiefPromos}
+        bedrijfsnaam={bedrijfsnaam}
+        logo={logo}
+      />
     )
   }
 
-  // ── Mode 2: Items in cart — 25% cart left (always light), 75% promos right ──
-
   return (
-    <div className="h-screen w-screen bg-slate-950 flex overflow-hidden">
-
-      {/* ── Left: Cart (25%) — always light mode ── */}
-      <div className="w-1/4 flex flex-col min-w-0 bg-white border-r border-gray-200">
-
-        {/* Header */}
-        <div className="px-6 pt-6 pb-4 flex items-center gap-3 border-b border-gray-100 shrink-0">
-          {logo && (
-            <img src={logo} alt={bedrijfsnaam} className="max-h-7 w-auto object-contain shrink-0" />
-          )}
-          <div className="min-w-0">
-            <p className="text-gray-900 font-black text-base leading-tight truncate">{bedrijfsnaam}</p>
-            <p className="text-gray-400 text-xs uppercase tracking-widest">Uw bestelling</p>
-          </div>
-        </div>
-
-        {/* Items list */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5 bg-white">
-          {items.map((item) => {
-            const isKg = item.product.prijsType === 'kg'
-            const lineTotal = item.product.prijs * item.aantal
-            return (
-              <div key={item.product.id} className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  {/* Product name */}
-                  <p className="text-lg font-bold text-gray-900 leading-tight truncate">
-                    {item.product.naam}
-                  </p>
-                  {/* Qty / weight + unit price */}
-                  {isKg ? (
-                    <p className="text-sm text-gray-500 mt-0.5">
-                      {Math.round(item.aantal * 1000)}g &mdash; {fmt(item.product.prijs)}/kg
-                    </p>
-                  ) : (
-                    <p className="text-base font-black text-blue-600 mt-0.5 leading-none">
-                      x{item.aantal}
-                      <span className="font-semibold text-gray-400 text-sm ml-2">
-                        &mdash; {fmt(item.product.prijs)}/st
-                      </span>
-                    </p>
-                  )}
-                </div>
-                {/* Line price */}
-                <p className="text-lg font-black text-gray-900 tabular-nums shrink-0 pt-0.5">
-                  {fmt(lineTotal)}
-                </p>
-              </div>
-            )
-          })}
-        </div>
-
-        {/* Total */}
-        <div className="px-6 py-5 border-t-2 border-gray-100 bg-gray-50 shrink-0">
-          {heeftKorting && (
-            <div className="flex justify-between items-center mb-1">
-              <span className="text-gray-400 text-sm">Subtotaal</span>
-              <span className="text-gray-400 text-sm tabular-nums line-through">{fmt(brutoBedrag)}</span>
-            </div>
-          )}
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600 text-xl font-bold">Totaal</span>
-            <span className="text-gray-900 text-4xl font-black tabular-nums leading-none">
-              {fmt(nettoBedrag)}
-            </span>
-          </div>
-          {heeftKorting && (
-            <p className="text-emerald-600 text-xs font-medium mt-1 text-right">
-              Inclusief korting van {fmt(kortingBedrag)}
-            </p>
-          )}
-        </div>
+    <div style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+      {/* Cart — 35% */}
+      <div style={{ width: '35%', flexShrink: 0, overflow: 'hidden' }}>
+        <CartPanel
+          items={items}
+          bedrijfsnaam={bedrijfsnaam}
+          logo={logo}
+          kortingMap={kortingMap}
+          brutoBedrag={brutoBedrag}
+          nettoBedrag={nettoBedrag}
+          kortingBedrag={kortingBedrag}
+          heeftKorting={heeftKorting}
+        />
       </div>
 
-      {/* ── Right: Promotions (75%) ── */}
-      <div className="w-3/4 shrink-0">
+      {/* Promos — 65% */}
+      <div style={{ flex: 1, overflow: 'hidden', backgroundColor: '#111' }}>
         {actiefPromos.length > 0 ? (
-          <PromoSlideshow
-            promoties={actiefPromos}
-            className="w-full h-full"
-          />
+          <PromoSlideshow promoties={actiefPromos} className="w-full h-full" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-slate-900">
-            <p className="text-slate-700 text-sm">Geen promoties</p>
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <p
+              style={{
+                fontFamily: "'Figtree', system-ui, sans-serif",
+                fontSize: 18,
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.15)',
+                letterSpacing: '0.05em',
+              }}
+            >
+              {bedrijfsnaam}
+            </p>
           </div>
         )}
       </div>

@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
-  TrendingUp, ShoppingCart, ArrowUpRight, FileText, Download, Eye,
+  TrendingUp, ShoppingCart, FileText, Download, Eye,
   Printer, RotateCcw, X, Lock, ChevronDown, ChevronUp, User, Trophy,
 } from 'lucide-react'
 import {
@@ -15,7 +15,87 @@ import { usePersoneelStore } from '../store/usePersoneelStore'
 import { BonView } from '../components/BonView'
 import type { Transactie, BonData, Dagafsluiting } from '../types'
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
+// ─── font & style injection ───────────────────────────────────────────────────
+
+function RapportageStyles() {
+  useEffect(() => {
+    if (document.getElementById('rap-gfonts')) return
+    const link = document.createElement('link')
+    link.id = 'rap-gfonts'
+    link.rel = 'stylesheet'
+    link.href =
+      'https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap'
+    document.head.appendChild(link)
+  }, [])
+
+  return (
+    <style>{`
+      .rap-root { font-family: 'DM Sans', system-ui, sans-serif; }
+      .rap-mono { font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace; }
+
+      @keyframes rap-fadein {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes rap-barrise {
+        from { transform: scaleY(0); }
+        to   { transform: scaleY(1); }
+      }
+      @keyframes rap-hbarfill {
+        from { transform: scaleX(0); }
+        to   { transform: scaleX(1); }
+      }
+      .rap-animate { animation: rap-fadein 0.45s cubic-bezier(0.22, 1, 0.36, 1) both; }
+      .rap-animate-1 { animation-delay: 0.05s; }
+      .rap-animate-2 { animation-delay: 0.10s; }
+      .rap-animate-3 { animation-delay: 0.15s; }
+      .rap-animate-4 { animation-delay: 0.20s; }
+      .rap-animate-5 { animation-delay: 0.25s; }
+      .rap-animate-6 { animation-delay: 0.30s; }
+      .rap-animate-7 { animation-delay: 0.35s; }
+      .rap-bar-rise {
+        transform-origin: bottom;
+        animation: rap-barrise 0.7s cubic-bezier(0.34, 1.2, 0.64, 1) both;
+      }
+      .rap-hbar-fill {
+        transform-origin: left;
+        animation: rap-hbarfill 0.7s cubic-bezier(0.34, 1.1, 0.64, 1) both;
+      }
+
+      /* amber glow on active tab underline */
+      .rap-tab-active::after {
+        content: '';
+        position: absolute;
+        bottom: -1px; left: 0; right: 0;
+        height: 2px;
+        background: var(--pos-amber);
+        border-radius: 2px 2px 0 0;
+      }
+
+      /* subtle dot grid background */
+      .rap-bg-dots {
+        background-image: radial-gradient(circle, rgba(37,99,235,0.06) 1px, transparent 1px);
+        background-size: 24px 24px;
+      }
+
+      /* card hover glow */
+      .rap-card-hover {
+        transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+      }
+      .rap-card-hover:hover {
+        border-color: rgba(37, 99, 235, 0.35) !important;
+        box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15), 0 4px 20px rgba(0,0,0,0.3);
+        transform: translateY(-1px);
+      }
+
+      /* input date styling */
+      .rap-input::-webkit-calendar-picker-indicator { opacity: 0.4; cursor: pointer; filter: invert(1); }
+      .rap-input:focus { outline: none; border-color: var(--pos-amber) !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.12); }
+    `}</style>
+  )
+}
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
 function fmt(n: number) {
   return n.toLocaleString('nl-NL', { style: 'currency', currency: 'EUR' })
@@ -35,7 +115,6 @@ function formatDatumLang(iso: string) {
   return new Date(iso).toLocaleDateString('nl-NL', { day: '2-digit', month: 'long', year: 'numeric' })
 }
 
-// Reconstruct BonData from a stored Transactie for receipt preview/reprint
 function transactieToBon(t: Transactie): BonData {
   return {
     transactieId: t.id,
@@ -50,31 +129,47 @@ function transactieToBon(t: Transactie): BonData {
   }
 }
 
-// ─── sub-components ───────────────────────────────────────────────────────────
+// ─── metric card ──────────────────────────────────────────────────────────────
 
 interface MetricCardProps {
   label: string
   value: string
-  icon: React.ElementType
-  iconColor: string
-  iconBg: string
+  sub?: string
+  accentColor?: string
+  delay?: number
 }
 
-function MetricCard({ label, value, icon: Icon, iconColor, iconBg }: MetricCardProps) {
+function MetricCard({ label, value, sub, accentColor = 'var(--pos-amber)', delay = 0 }: MetricCardProps) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 px-5 py-4 flex items-center justify-between shadow-sm">
-      <div>
-        <p className="text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1">{label}</p>
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-      </div>
-      <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${iconBg}`}>
-        <Icon size={20} className={iconColor} />
-      </div>
+    <div
+      className="rap-animate rap-card-hover relative overflow-hidden rounded-2xl p-5"
+      style={{
+        animationDelay: `${delay}s`,
+        backgroundColor: 'var(--pos-card)',
+        border: '1px solid var(--pos-border)',
+      }}
+    >
+      {/* top accent line */}
+      <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: accentColor }} />
+
+      <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--pos-t3)' }}>
+        {label}
+      </p>
+      <p
+        className="rap-mono text-3xl font-bold leading-none tabular-nums"
+        style={{ letterSpacing: '-0.02em', color: 'var(--pos-t1)' }}
+      >
+        {value}
+      </p>
+      {sub && (
+        <p className="text-xs mt-2 rap-mono" style={{ color: 'var(--pos-t3)' }}>{sub}</p>
+      )}
     </div>
   )
 }
 
-// Bar chart
+// ─── bar chart (weekly revenue) ───────────────────────────────────────────────
+
 function OmzetBarChart({ transacties }: { transacties: Transactie[] }) {
   const DAGEN_NL = ['zo', 'ma', 'di', 'woe', 'don', 'vri', 'zat']
   const bars = useMemo(() => {
@@ -85,38 +180,85 @@ function OmzetBarChart({ transacties }: { transacties: Transactie[] }) {
       const omzet = transacties
         .filter((t) => {
           const d = new Date(t.tijdstip)
-          return d.getFullYear() === dag.getFullYear() && d.getMonth() === dag.getMonth() && d.getDate() === dag.getDate()
+          return (
+            d.getFullYear() === dag.getFullYear() &&
+            d.getMonth() === dag.getMonth() &&
+            d.getDate() === dag.getDate()
+          )
         })
         .reduce((s, t) => s + t.totaal, 0)
-      return { label: DAGEN_NL[dag.getDay()]!, omzet, isVandaag: dag.toDateString() === today.toDateString() }
+      return {
+        label: DAGEN_NL[dag.getDay()]!,
+        omzet,
+        isVandaag: dag.toDateString() === today.toDateString(),
+      }
     })
   }, [transacties])
 
   const max = Math.max(...bars.map((b) => b.omzet), 1)
-  const MIN_PX = 6
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 shadow-sm">
-      <h3 className="font-semibold text-gray-800 dark:text-slate-200 mb-4 text-sm">Omzet afgelopen week</h3>
-      <div className="flex gap-3 items-end" style={{ height: 160 }}>
-        {bars.map((bar, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-1.5">
-            <span className={`text-xs font-semibold leading-none text-center w-full truncate ${bar.isVandaag ? 'text-blue-500' : bar.omzet > 0 ? 'text-gray-600 dark:text-slate-300' : 'text-gray-300 dark:text-slate-600'}`}>
-              {bar.omzet > 0 ? '€' + bar.omzet.toLocaleString('nl-NL', { maximumFractionDigits: 0 }) : '–'}
-            </span>
-            <div
-              className={`w-full rounded-t-lg transition-all duration-500 ${bar.isVandaag ? 'bg-blue-500' : bar.omzet > 0 ? 'bg-yellow-400' : 'bg-gray-100 dark:bg-slate-700'}`}
-              style={{ height: bar.omzet > 0 ? `${Math.max((bar.omzet / max) * 100, 4)}%` : `${MIN_PX}px`, minHeight: `${MIN_PX}px` }}
-            />
-            <span className={`text-xs font-medium shrink-0 ${bar.isVandaag ? 'text-blue-500' : 'text-gray-400 dark:text-slate-500'}`}>{bar.label}</span>
-          </div>
-        ))}
+    <div
+      className="rap-animate rap-animate-5 rounded-2xl p-6"
+      style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+    >
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--pos-t3)' }}>
+          Omzet — afgelopen 7 dagen
+        </h3>
+        <TrendingUp size={14} className="text-blue-500 opacity-60" />
+      </div>
+
+      <div className="flex gap-2 items-end" style={{ height: 140 }}>
+        {bars.map((bar, i) => {
+          const heightPct = bar.omzet > 0 ? Math.max((bar.omzet / max) * 100, 6) : 5
+          return (
+            <div key={i} className="flex-1 flex flex-col items-center justify-end h-full gap-2">
+              {bar.omzet > 0 && (
+                <span
+                  className="text-[10px] font-semibold rap-mono leading-none"
+                  style={{ color: bar.isVandaag ? 'var(--pos-amber)' : 'var(--pos-t3)' }}
+                >
+                  €{bar.omzet.toLocaleString('nl-NL', { maximumFractionDigits: 0 })}
+                </span>
+              )}
+              <div className="w-full flex flex-col justify-end" style={{ height: '100%' }}>
+                <div
+                  className="rap-bar-rise w-full rounded-t-md"
+                  style={{
+                    height: `${heightPct}%`,
+                    animationDelay: `${0.3 + i * 0.06}s`,
+                    background: bar.isVandaag
+                      ? 'linear-gradient(to top, #A88745, var(--pos-amber))'
+                      : bar.omzet > 0
+                      ? 'linear-gradient(to top, var(--pos-elevated), var(--pos-t4))'
+                      : 'rgba(25,28,38,0.4)',
+                  }}
+                />
+              </div>
+              <span
+                className="text-[11px] font-semibold shrink-0"
+                style={{ color: bar.isVandaag ? 'var(--pos-amber)' : 'var(--pos-t3)' }}
+              >
+                {bar.label}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-// Donut chart
+// ─── category chart (horizontal bars) ────────────────────────────────────────
+
+const CAT_COLORS: Record<string, string> = {
+  Broodjes: '#3B82F6',
+  Snacks:   '#2563EB',
+  Drank:    '#A88745',
+  Overig:   '#9CA3AF',
+}
+
 function OmzetPerCategorie({ transacties }: { transacties: Transactie[] }) {
   const data = useMemo(() => {
     const totalen: Record<string, number> = {}
@@ -125,57 +267,68 @@ function OmzetPerCategorie({ transacties }: { transacties: Transactie[] }) {
         totalen[r.categorie] = (totalen[r.categorie] ?? 0) + r.prijs * r.aantal
       }
     }
-    return Object.entries(totalen).map(([cat, omzet]) => ({ cat, omzet })).sort((a, b) => b.omzet - a.omzet)
+    return Object.entries(totalen)
+      .map(([cat, omzet]) => ({ cat, omzet }))
+      .sort((a, b) => b.omzet - a.omzet)
   }, [transacties])
 
   const totaal = data.reduce((s, d) => s + d.omzet, 0)
-  const R = 52; const SW = 20; const SIZE = 160; const cx = SIZE / 2; const cy = SIZE / 2; const CIRC = 2 * Math.PI * R
-  const KLEUREN: Record<string, string> = { Broodjes: '#FACC15', Snacks: '#FB923C', Drank: '#60A5FA', Overig: '#A78BFA' }
-
-  const segments = data.reduce<{ cat: string; omzet: string; color: string; dasharray: string; dashoffset: number }[]>(
-    (acc, { cat, omzet }) => {
-      const cumLen = acc.reduce((s, seg) => s + (parseFloat(seg.dasharray.split(' ')[0]!) || 0), 0)
-      const len = (omzet / totaal) * CIRC
-      return [...acc, { cat, omzet: fmt(omzet), color: KLEUREN[cat] ?? '#9CA3AF', dasharray: `${len} ${CIRC - len}`, dashoffset: -cumLen }]
-    }, []
-  )
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 shadow-sm">
-      <h3 className="font-semibold text-gray-800 dark:text-slate-200 mb-4 text-sm">Omzet per categorie</h3>
+    <div
+      className="rap-animate rap-animate-6 rounded-2xl p-6"
+      style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+    >
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--pos-t3)' }}>
+          Omzet per categorie
+        </h3>
+        <span className="rap-mono text-xs" style={{ color: 'var(--pos-t3)' }}>{fmt(totaal)}</span>
+      </div>
+
       {data.length === 0 ? (
-        <p className="text-gray-400 dark:text-slate-500 text-sm text-center py-12">Geen data</p>
+        <div className="flex items-center justify-center h-32 text-sm" style={{ color: 'var(--pos-t4)' }}>
+          Geen data beschikbaar
+        </div>
       ) : (
-        <div className="flex items-center gap-6">
-          <div className="shrink-0">
-            <svg width={SIZE} height={SIZE} style={{ transform: 'rotate(-90deg)' }} viewBox={`0 0 ${SIZE} ${SIZE}`}>
-              <circle cx={cx} cy={cy} r={R} fill="none" stroke="#F3F4F6" strokeWidth={SW} />
-              {segments.map((seg) => (
-                <circle key={seg.cat} cx={cx} cy={cy} r={R} fill="none" stroke={seg.color} strokeWidth={SW}
-                  strokeDasharray={seg.dasharray} strokeDashoffset={seg.dashoffset} strokeLinecap="butt" />
-              ))}
-              <text x={cx} y={cy - 7} textAnchor="middle" dominantBaseline="middle"
-                style={{ transform: `rotate(90deg) translate(0px, -${SIZE}px)`, transformOrigin: `${cx}px ${cy}px`, fontSize: 11, fill: '#6B7280', fontFamily: 'Inter, sans-serif' }}>Totaal</text>
-              <text x={cx} y={cy + 10} textAnchor="middle" dominantBaseline="middle"
-                style={{ transform: `rotate(90deg) translate(0px, -${SIZE}px)`, transformOrigin: `${cx}px ${cy}px`, fontSize: 13, fontWeight: 700, fill: '#111827', fontFamily: 'Inter, sans-serif' }}>{fmt(totaal)}</text>
-            </svg>
-          </div>
-          <div className="flex-1 space-y-2.5">
-            {segments.map((seg) => (
-              <div key={seg.cat} className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: seg.color }} />
-                  <span className="text-sm text-gray-600 dark:text-slate-300 font-medium truncate">{seg.cat}</span>
+        <div className="space-y-4">
+          {data.map((d, i) => {
+            const pct = totaal > 0 ? (d.omzet / totaal) * 100 : 0
+            const color = CAT_COLORS[d.cat] ?? 'var(--pos-t3)'
+            return (
+              <div key={d.cat}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-sm font-medium" style={{ color: 'var(--pos-t2)' }}>
+                      {d.cat}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs rap-mono" style={{ color: 'var(--pos-t3)' }}>
+                      {pct.toFixed(0)}%
+                    </span>
+                    <span className="text-sm font-semibold rap-mono" style={{ color: 'var(--pos-t1)' }}>
+                      {fmt(d.omzet)}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right shrink-0">
-                  <span className="text-sm font-semibold text-gray-800 dark:text-slate-200">{seg.omzet}</span>
-                  <span className="text-xs text-gray-400 dark:text-slate-500 ml-1.5">
-                    {((data.find((d) => d.cat === seg.cat)?.omzet ?? 0) / totaal * 100).toFixed(0)}%
-                  </span>
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--pos-border)' }}>
+                  <div
+                    className="rap-hbar-fill h-full rounded-full"
+                    style={{
+                      width: `${pct}%`,
+                      background: color,
+                      animationDelay: `${0.4 + i * 0.08}s`,
+                    }}
+                  />
                 </div>
               </div>
-            ))}
-          </div>
+            )
+          })}
         </div>
       )}
     </div>
@@ -184,11 +337,25 @@ function OmzetPerCategorie({ transacties }: { transacties: Transactie[] }) {
 
 // ─── payment method badges ────────────────────────────────────────────────────
 
-const METHODE_BADGE: Record<string, { label: string; cls: string }> = {
-  contant:   { label: 'Contant',   cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400' },
-  pin:       { label: 'PIN',       cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400' },
-  cadeaubon: { label: 'Cadeaubon', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400' },
-  gesplitst: { label: 'Gesplitst', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400' },
+const METHODE_BADGE: Record<string, { label: string; bg: string; color: string }> = {
+  contant:   { label: 'Contant',   bg: 'rgba(16,185,129,0.15)',  color: '#10b981' },
+  pin:       { label: 'PIN',       bg: 'rgba(37,99,235,0.15)', color: '#3B82F6' },
+  cadeaubon: { label: 'Cadeaubon', bg: 'rgba(139,92,246,0.15)',  color: '#8b5cf6' },
+  gesplitst: { label: 'Gesplitst', bg: 'rgba(249,115,22,0.15)',  color: '#f97316' },
+}
+
+function PayBadge({ methode }: { methode?: string }) {
+  if (!methode) return <span style={{ color: 'var(--pos-t4)' }}>—</span>
+  const badge = METHODE_BADGE[methode]
+  if (!badge) return <span className="text-xs" style={{ color: 'var(--pos-t2)' }}>{methode}</span>
+  return (
+    <span
+      className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+      style={{ backgroundColor: badge.bg, color: badge.color }}
+    >
+      {badge.label}
+    </span>
+  )
 }
 
 // ─── transaction detail modal ─────────────────────────────────────────────────
@@ -202,14 +369,11 @@ function TransactieModal({
 }) {
   const [bevestigRefund, setBevestigRefund] = useState(false)
   const [weergave, setWeergave] = useState<'details' | 'bon'>('bon')
-
-  const methode = transactie.betaalmethode
-  const badge = methode ? METHODE_BADGE[methode] : null
   const bon = transactieToBon(transactie)
 
   function printBon() {
     const style = document.createElement('style')
-    style.innerHTML = `@media print { body * { visibility:hidden } #bon-content,#bon-content * { visibility:visible } #bon-content { position:fixed;top:0;left:0;width:80mm;padding:4mm;background:white } }`
+    style.textContent = `@media print { body * { visibility:hidden } #bon-content,#bon-content * { visibility:visible } #bon-content { position:fixed;top:0;left:0;width:80mm;padding:4mm;background:white } }`
     document.head.appendChild(style)
     window.print()
     document.head.removeChild(style)
@@ -217,75 +381,126 @@ function TransactieModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onSluiten} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+      <div
+        className="absolute inset-0 bg-black/60"
+        onClick={onSluiten}
+        style={{ backdropFilter: 'blur(6px)' }}
+      />
+      <div
+        className="rap-root relative rounded-3xl shadow-2xl w-full max-w-md overflow-hidden"
+        style={{
+          backgroundColor: 'var(--pos-card)',
+          border: '1px solid var(--pos-border)',
+          boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(37,99,235,0.08)',
+        }}
+      >
+        {/* amber top line */}
+        <div className="h-[2px]" style={{ background: 'linear-gradient(to right, var(--pos-amber), var(--pos-amber-h))' }} />
+
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 dark:border-slate-700">
+        <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid var(--pos-border)' }}>
           <div>
-            <h2 className="font-black text-gray-900 dark:text-white text-lg">Transactie</h2>
-            <p className="text-xs font-mono text-gray-400 dark:text-slate-500 mt-0.5">{transactie.id}</p>
+            <h2 className="font-bold text-base" style={{ color: 'var(--pos-t1)' }}>Transactie</h2>
+            <p className="text-[11px] rap-mono mt-0.5" style={{ color: 'var(--pos-t4)' }}>{transactie.id}</p>
           </div>
           <div className="flex items-center gap-2">
-            {badge && <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>}
-            {transactie.isTerugboeking && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">Terugboeking</span>}
-            {transactie.isTerugGeboekt && <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 dark:bg-slate-700 text-gray-500 dark:text-slate-400">Terugbeboekt</span>}
-            <button onClick={onSluiten} className="w-8 h-8 rounded-xl flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-              <X size={16} />
+            <PayBadge methode={transactie.betaalmethode} />
+            {transactie.isTerugboeking && (
+              <span
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+              >
+                Terugboeking
+              </span>
+            )}
+            {transactie.isTerugGeboekt && (
+              <span
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                style={{ backgroundColor: 'var(--pos-border)', color: 'var(--pos-t3)' }}
+              >
+                Terugbeboekt
+              </span>
+            )}
+            <button
+              onClick={onSluiten}
+              className="w-8 h-8 rounded-xl flex items-center justify-center transition-colors"
+              style={{ color: 'var(--pos-t2)' }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-hover)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+            >
+              <X size={15} />
             </button>
           </div>
         </div>
 
-        {/* Toggle: Details | Bon */}
-        <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 p-1 mx-5 mt-4 rounded-xl">
+        {/* Toggle */}
+        <div className="flex gap-0 px-5" style={{ borderBottom: '1px solid var(--pos-border)' }}>
           {(['bon', 'details'] as const).map((v) => (
-            <button key={v} onClick={() => setWeergave(v)}
-              className={`flex-1 py-1.5 rounded-lg text-sm font-medium transition-all ${weergave === v ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-slate-400'}`}>
+            <button
+              key={v}
+              onClick={() => setWeergave(v)}
+              className="relative py-3 px-4 text-sm font-medium transition-colors rap-tab-active"
+              style={{ color: weergave === v ? 'var(--pos-amber)' : 'var(--pos-t3)' }}
+              onMouseEnter={(e) => { if (weergave !== v) e.currentTarget.style.color = 'var(--pos-t2)' }}
+              onMouseLeave={(e) => { if (weergave !== v) e.currentTarget.style.color = 'var(--pos-t3)' }}
+            >
               {v === 'bon' ? 'Bon / Reprint' : 'Details'}
+              {weergave === v && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t" style={{ backgroundColor: 'var(--pos-amber)' }} />
+              )}
             </button>
           ))}
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto max-h-[55vh] p-5">
+        <div className="overflow-y-auto max-h-[52vh] p-5">
           {weergave === 'bon' ? (
-            <div className="bg-gray-50 dark:bg-slate-800 rounded-2xl p-4 border border-gray-100 dark:border-slate-700">
+            <div
+              className="rounded-2xl p-4"
+              style={{ backgroundColor: 'var(--pos-panel)', border: '1px solid var(--pos-border)' }}
+            >
               <BonView bon={bon} />
             </div>
           ) : (
             <div className="space-y-4">
-              <div className="text-sm space-y-1">
-                <div className="flex justify-between">
-                  <span className="text-gray-500 dark:text-slate-400">Datum</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{formatDatum(transactie.tijdstip)} {formatTijd(transactie.tijdstip)}</span>
-                </div>
-                {methode && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-slate-400">Betaalmethode</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{badge?.label ?? methode}</span>
-                  </div>
-                )}
-                {transactie.medewerker && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500 dark:text-slate-400">Medewerker</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{transactie.medewerker}</span>
-                  </div>
-                )}
-              </div>
-              <div className="border-t border-gray-100 dark:border-slate-700 pt-3 space-y-2">
-                {transactie.regels.map((r, i) => (
-                  <div key={i} className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-slate-300">{r.aantal}× {r.naam}</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{fmt(r.prijs * r.aantal)}</span>
+              <div className="space-y-2">
+                {[
+                  ['Datum', `${formatDatum(transactie.tijdstip)} ${formatTijd(transactie.tijdstip)}`],
+                  ...(transactie.betaalmethode ? [['Betaalmethode', METHODE_BADGE[transactie.betaalmethode]?.label ?? transactie.betaalmethode]] : []),
+                  ...(transactie.medewerker ? [['Medewerker', transactie.medewerker]] : []),
+                ].map(([k, v]) => (
+                  <div key={k} className="flex justify-between items-center py-1.5" style={{ borderBottom: '1px solid var(--pos-hover)' }}>
+                    <span className="text-sm" style={{ color: 'var(--pos-t3)' }}>{k}</span>
+                    <span className="text-sm font-medium" style={{ color: 'var(--pos-t1)' }}>{v}</span>
                   </div>
                 ))}
               </div>
-              <div className="border-t border-gray-100 dark:border-slate-700 pt-3 space-y-1 text-sm">
-                <div className="flex justify-between text-gray-500 dark:text-slate-400">
-                  <span>BTW</span><span>{fmt(transactie.btw)}</span>
+              <div className="space-y-1.5 pt-1">
+                {transactie.regels.map((r, i) => (
+                  <div key={i} className="flex justify-between text-sm">
+                    <span style={{ color: 'var(--pos-t2)' }}>
+                      <span className="rap-mono" style={{ color: 'var(--pos-t3)' }}>{r.aantal}×</span>{' '}
+                      {r.naam}
+                    </span>
+                    <span className="rap-mono font-medium" style={{ color: 'var(--pos-t1)' }}>
+                      {fmt(r.prijs * r.aantal)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-3 space-y-1" style={{ borderTop: '1px solid var(--pos-border)' }}>
+                <div className="flex justify-between text-sm">
+                  <span style={{ color: 'var(--pos-t3)' }}>BTW</span>
+                  <span className="rap-mono" style={{ color: 'var(--pos-t2)' }}>{fmt(transactie.btw)}</span>
                 </div>
-                <div className="flex justify-between font-black text-base">
-                  <span className="text-gray-900 dark:text-white">Totaal</span>
-                  <span className={transactie.isTerugboeking ? 'text-red-600 dark:text-red-400' : 'text-gray-900 dark:text-white'}>{fmt(transactie.totaal)}</span>
+                <div className="flex justify-between items-center">
+                  <span className="text-base font-bold" style={{ color: 'var(--pos-t1)' }}>Totaal</span>
+                  <span
+                    className="rap-mono text-xl font-bold"
+                    style={{ color: transactie.isTerugboeking ? '#ef4444' : 'var(--pos-amber)' }}
+                  >
+                    {fmt(transactie.totaal)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -293,22 +508,59 @@ function TransactieModal({
         </div>
 
         {/* Actions */}
-        <div className="p-4 border-t border-gray-100 dark:border-slate-700 space-y-3">
+        <div className="p-4" style={{ borderTop: '1px solid var(--pos-border)' }}>
           {bevestigRefund ? (
-            <div className="bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-2xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-red-700 dark:text-red-300 text-center">Transactie terugboeken?</p>
+            <div
+              className="rounded-2xl p-4 space-y-3"
+              style={{ backgroundColor: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}
+            >
+              <p className="text-sm font-semibold text-center" style={{ color: '#fca5a5' }}>
+                Transactie terugboeken?
+              </p>
               <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setBevestigRefund(false)} className="py-2.5 rounded-xl font-semibold text-sm bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-600 transition-colors">Annuleren</button>
-                <button onClick={() => { onTerugboeken(); onSluiten() }} className="py-2.5 rounded-xl font-semibold text-sm bg-red-500 text-white hover:bg-red-600 transition-colors">Ja, terugboeken</button>
+                <button
+                  onClick={() => setBevestigRefund(false)}
+                  className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
+                  style={{ backgroundColor: 'var(--pos-elevated)', color: 'var(--pos-t2)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-t4)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-elevated)' }}
+                >
+                  Annuleren
+                </button>
+                <button
+                  onClick={() => { onTerugboeken(); onSluiten() }}
+                  className="py-2.5 rounded-xl font-semibold text-sm text-white transition-colors"
+                  style={{ backgroundColor: '#ef4444' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#dc2626' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ef4444' }}
+                >
+                  Ja, terugboeken
+                </button>
               </div>
             </div>
           ) : (
             <div className="flex gap-2">
-              <button onClick={printBon} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+              <button
+                onClick={printBon}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                style={{ backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-amber-h)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-amber)' }}
+              >
                 <Printer size={14} /> Bon afdrukken
               </button>
               {!transactie.isTerugboeking && !transactie.isTerugGeboekt && (
-                <button onClick={() => setBevestigRefund(true)} className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 transition-colors border border-red-200 dark:border-red-800">
+                <button
+                  onClick={() => setBevestigRefund(true)}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors"
+                  style={{
+                    backgroundColor: 'rgba(239,68,68,0.1)',
+                    color: '#ef4444',
+                    border: '1px solid rgba(239,68,68,0.2)',
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.18)' }}
+                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.1)' }}
+                >
                   <RotateCcw size={14} /> Terugboeken
                 </button>
               )}
@@ -320,7 +572,7 @@ function TransactieModal({
   )
 }
 
-// ─── transactions table ───────────────────────────────────────────────────────
+// ─── transaction list ─────────────────────────────────────────────────────────
 
 function TransactieLijst({ transacties }: { transacties: Transactie[] }) {
   const { terugboekenTransactie } = useTransactieStore()
@@ -331,48 +583,128 @@ function TransactieLijst({ transacties }: { transacties: Transactie[] }) {
 
   return (
     <>
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700">
-          <h3 className="font-semibold text-gray-800 dark:text-slate-200 text-sm">Transacties</h3>
+      <div
+        className="rap-animate rap-animate-7 rounded-2xl overflow-hidden"
+        style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+      >
+        {/* Table header */}
+        <div className="px-6 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid var(--pos-border)' }}>
+          <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--pos-t3)' }}>
+            Transacties
+          </h3>
+          <span className="rap-mono text-xs" style={{ color: 'var(--pos-t3)' }}>
+            {transacties.length} records
+          </span>
         </div>
 
         {transacties.length === 0 ? (
-          <div className="py-12 text-center text-gray-400 dark:text-slate-500 text-sm">Geen transacties in deze periode</div>
+          <div className="py-16 text-center">
+            <ShoppingCart size={32} className="mx-auto mb-3" style={{ color: 'var(--pos-t4)' }} />
+            <p className="text-sm" style={{ color: 'var(--pos-t3)' }}>
+              Geen transacties in deze periode
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="bg-gray-50 dark:bg-slate-700/50 border-b border-gray-100 dark:border-slate-700">
-                  {['Datum', 'Tijd', 'ID', 'Medewerker', 'Betaalmethode', 'Producten', 'BTW', 'Totaal', ''].map((h, i) => (
-                    <th key={i} className={`px-4 py-3 text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wide whitespace-nowrap ${i >= 6 ? 'text-right' : 'text-left'}`}>{h}</th>
+                <tr style={{ borderBottom: '1px solid var(--pos-border)' }}>
+                  {[
+                    { label: 'Datum', align: 'left' },
+                    { label: 'Tijd', align: 'left' },
+                    { label: 'ID', align: 'left' },
+                    { label: 'Medewerker', align: 'left' },
+                    { label: 'Methode', align: 'left' },
+                    { label: 'Producten', align: 'left' },
+                    { label: 'BTW', align: 'right' },
+                    { label: 'Totaal', align: 'right' },
+                    { label: '', align: 'right' },
+                  ].map((h) => (
+                    <th
+                      key={h.label}
+                      className={`px-4 py-3 text-[10px] font-semibold uppercase tracking-widest whitespace-nowrap text-${h.align}`}
+                      style={{ color: 'var(--pos-t4)' }}
+                    >
+                      {h.label}
+                    </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {transacties.map((t, idx) => {
-                  const badge = t.betaalmethode ? METHODE_BADGE[t.betaalmethode] : null
+                {transacties.map((t) => {
                   const isRefund = t.isTerugboeking
                   const isRefunded = t.isTerugGeboekt
                   return (
-                    <tr key={t.id} className={`${idx < transacties.length - 1 ? 'border-b border-gray-100 dark:border-slate-700' : ''} hover:bg-gray-50 dark:hover:bg-slate-700/40 transition-colors ${isRefund ? 'bg-red-50/40 dark:bg-red-950/20' : ''}`}>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-slate-400 whitespace-nowrap">{formatDatum(t.tijdstip)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-600 dark:text-slate-300 font-medium whitespace-nowrap">{formatTijd(t.tijdstip)}</td>
-                      <td className="px-4 py-3 text-xs font-mono text-gray-400 dark:text-slate-500 whitespace-nowrap">{t.id}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500 dark:text-slate-400">{t.medewerker ?? '—'}</td>
-                      <td className="px-4 py-3">
-                        {isRefund ? <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400">Terugboeking</span>
-                          : badge ? <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
-                          : <span className="text-xs text-gray-400 dark:text-slate-500">—</span>}
+                    <tr
+                      key={t.id}
+                      className="group transition-colors"
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = isRefund
+                          ? 'rgba(239,68,68,0.05)'
+                          : 'rgba(37,99,235,0.04)'
+                      }}
+                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                    >
+                      <td className="px-4 py-3 text-xs rap-mono whitespace-nowrap" style={{ color: 'var(--pos-t3)' }}>
+                        {formatDatum(t.tijdstip)}
                       </td>
-                      <td className={`px-4 py-3 text-sm max-w-[160px] truncate ${isRefund ? 'text-red-500 dark:text-red-400' : 'text-gray-600 dark:text-slate-300'}`}>
+                      <td className="px-4 py-3 text-xs rap-mono font-medium whitespace-nowrap" style={{ color: 'var(--pos-t2)' }}>
+                        {formatTijd(t.tijdstip)}
+                      </td>
+                      <td className="px-4 py-3 text-[10px] rap-mono whitespace-nowrap" style={{ color: 'var(--pos-t4)' }}>
+                        {t.id}
+                      </td>
+                      <td className="px-4 py-3 text-sm" style={{ color: 'var(--pos-t3)' }}>
+                        {t.medewerker ?? <span style={{ color: 'var(--pos-t4)' }}>—</span>}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isRefund ? (
+                          <span
+                            className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                            style={{ backgroundColor: 'rgba(239,68,68,0.15)', color: '#ef4444' }}
+                          >
+                            Terugboeking
+                          </span>
+                        ) : (
+                          <PayBadge methode={t.betaalmethode} />
+                        )}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-xs max-w-[140px] truncate"
+                        style={{ color: isRefund ? '#ef4444' : 'var(--pos-t3)' }}
+                      >
                         {t.regels.map((r) => `${r.aantal}× ${r.naam}`).join(', ')}
                       </td>
-                      <td className={`px-4 py-3 text-sm text-right whitespace-nowrap ${isRefund ? 'text-red-500 dark:text-red-400' : 'text-gray-600 dark:text-slate-300'}`}>{fmt(t.btw)}</td>
-                      <td className={`px-4 py-3 text-sm font-bold text-right whitespace-nowrap ${isRefund ? 'text-red-600 dark:text-red-400' : isRefunded ? 'text-gray-400 dark:text-slate-500 line-through' : 'text-gray-800 dark:text-white'}`}>{fmt(t.totaal)}</td>
+                      <td
+                        className="px-4 py-3 text-xs rap-mono text-right whitespace-nowrap"
+                        style={{ color: isRefund ? '#ef4444' : 'var(--pos-t3)' }}
+                      >
+                        {fmt(t.btw)}
+                      </td>
+                      <td
+                        className="px-4 py-3 text-sm rap-mono font-bold text-right whitespace-nowrap"
+                        style={{
+                          color: isRefund
+                            ? '#ef4444'
+                            : isRefunded
+                            ? 'var(--pos-t4)'
+                            : 'var(--pos-t1)',
+                          textDecoration: isRefunded && !isRefund ? 'line-through' : 'none',
+                        }}
+                      >
+                        {fmt(t.totaal)}
+                      </td>
                       <td className="px-4 py-3">
-                        <button onClick={() => setGeselecteerd(t)} title="Bekijken / Afdrukken"
-                          className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
-                          <Eye size={14} />
+                        <button
+                          onClick={() => setGeselecteerd(t)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors opacity-0 group-hover:opacity-100"
+                          style={{ color: 'var(--pos-t3)' }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(37,99,235,0.12)'; e.currentTarget.style.color = 'var(--pos-amber)' }}
+                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--pos-t3)' }}
+                          title="Bekijken"
+                        >
+                          <Eye size={13} />
                         </button>
                       </td>
                     </tr>
@@ -380,10 +712,16 @@ function TransactieLijst({ transacties }: { transacties: Transactie[] }) {
                 })}
               </tbody>
               <tfoot>
-                <tr className="bg-gray-50 dark:bg-slate-700/50 border-t-2 border-gray-200 dark:border-slate-600">
-                  <td colSpan={6} className="px-4 py-3 text-sm font-semibold text-gray-700 dark:text-slate-200">Totaal ({transacties.length})</td>
-                  <td className="px-4 py-3 text-sm font-semibold text-right text-gray-700 dark:text-slate-200 whitespace-nowrap">{fmt(totaalBtw)}</td>
-                  <td className="px-4 py-3 text-sm font-bold text-right text-blue-600 dark:text-blue-400 whitespace-nowrap">{fmt(totaalOmzet)}</td>
+                <tr style={{ borderTop: '2px solid var(--pos-border)', backgroundColor: 'rgba(255,255,255,0.02)' }}>
+                  <td colSpan={6} className="px-4 py-3 text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--pos-t3)' }}>
+                    Totaal — {transacties.length} transacties
+                  </td>
+                  <td className="px-4 py-3 text-sm rap-mono font-semibold text-right whitespace-nowrap" style={{ color: 'var(--pos-t2)' }}>
+                    {fmt(totaalBtw)}
+                  </td>
+                  <td className="px-4 py-3 text-base rap-mono font-bold text-right whitespace-nowrap" style={{ color: 'var(--pos-amber)' }}>
+                    {fmt(totaalOmzet)}
+                  </td>
                   <td />
                 </tr>
               </tfoot>
@@ -403,7 +741,7 @@ function TransactieLijst({ transacties }: { transacties: Transactie[] }) {
   )
 }
 
-// ─── employee statistics ──────────────────────────────────────────────────────
+// ─── employee stats ───────────────────────────────────────────────────────────
 
 function MedewerkerStats({ transacties }: { transacties: Transactie[] }) {
   const { medewerkers } = usePersoneelStore()
@@ -422,66 +760,85 @@ function MedewerkerStats({ transacties }: { transacties: Transactie[] }) {
       .sort((a, b) => b.omzet - a.omzet)
   }, [transacties])
 
-  if (stats.length === 0) return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 shadow-sm">
-      <h3 className="font-semibold text-gray-800 dark:text-slate-200 mb-4 text-sm flex items-center gap-2">
-        <User size={15} /> Medewerker statistieken
-      </h3>
-      <p className="text-gray-400 dark:text-slate-500 text-sm text-center py-8">Nog geen transactiedata</p>
-    </div>
-  )
-
-  const maxOmzet = stats[0]?.omzet ?? 1
-
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 shadow-sm">
-      <h3 className="font-semibold text-gray-800 dark:text-slate-200 mb-4 text-sm flex items-center gap-2">
-        <User size={15} /> Medewerker statistieken
-      </h3>
-      <div className="space-y-3">
-        {stats.map((s, i) => {
-          const medewerker = medewerkers.find((m) => m.naam.split(' ')[0] === s.naam)
-          const kleur = medewerker?.kleur ?? '#6B7280'
-          const breedte = (s.omzet / maxOmzet) * 100
-          const isTop = i === 0
-          return (
-            <div key={s.naam} className="flex items-center gap-4">
-              {/* Rank + name */}
-              <div className="flex items-center gap-2 w-36 shrink-0">
-                {isTop ? (
-                  <Trophy size={14} className="text-yellow-500 shrink-0" />
-                ) : (
-                  <span className="w-4 text-center text-xs font-bold text-gray-400 dark:text-slate-500">{i + 1}</span>
-                )}
+    <div
+      className="rap-animate rap-animate-6 rounded-2xl p-6"
+      style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+    >
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-xs font-semibold uppercase tracking-widest flex items-center gap-2" style={{ color: 'var(--pos-t3)' }}>
+          <User size={13} />
+          Medewerkers
+        </h3>
+        {stats.length > 0 && stats[0] && (
+          <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--pos-amber)' }}>
+            <Trophy size={12} />
+            <span className="font-semibold">{stats[0].naam}</span>
+          </div>
+        )}
+      </div>
+
+      {stats.length === 0 ? (
+        <div className="flex items-center justify-center h-24 text-sm" style={{ color: 'var(--pos-t4)' }}>
+          Nog geen transactiedata
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {stats.map((s, i) => {
+            const medewerker = medewerkers.find((m) => m.naam.split(' ')[0] === s.naam)
+            const kleur = medewerker?.kleur ?? (i === 0 ? '#3B82F6' : 'var(--pos-t3)')
+            const maxOmzet = stats[0]?.omzet ?? 1
+            const breedte = (s.omzet / maxOmzet) * 100
+            return (
+              <div key={s.naam} className="flex items-center gap-4">
+                <div className="w-6 text-center">
+                  {i === 0 ? (
+                    <Trophy size={14} className="mx-auto" style={{ color: 'var(--pos-amber)' }} />
+                  ) : (
+                    <span className="text-xs rap-mono font-bold" style={{ color: 'var(--pos-t4)' }}>
+                      {i + 1}
+                    </span>
+                  )}
+                </div>
                 <div
-                  className="w-6 h-6 rounded-lg flex items-center justify-center text-white text-[10px] font-black shrink-0"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[10px] font-black shrink-0"
                   style={{ backgroundColor: kleur }}
                 >
                   {s.naam.slice(0, 2).toUpperCase()}
                 </div>
-                <span className="text-sm font-semibold text-gray-700 dark:text-slate-200 truncate">{s.naam}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold truncate" style={{ color: 'var(--pos-t2)' }}>
+                      {s.naam}
+                    </span>
+                    <span className="rap-mono text-sm font-bold ml-2 shrink-0" style={{ color: 'var(--pos-t1)' }}>
+                      {fmt(s.omzet)}
+                    </span>
+                  </div>
+                  <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--pos-border)' }}>
+                    <div
+                      className="rap-hbar-fill h-full rounded-full"
+                      style={{
+                        width: `${breedte}%`,
+                        backgroundColor: kleur,
+                        animationDelay: `${0.4 + i * 0.07}s`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-[11px] mt-0.5" style={{ color: 'var(--pos-t3)' }}>
+                    {s.aantal} transacties
+                  </p>
+                </div>
               </div>
-              {/* Bar */}
-              <div className="flex-1 h-2 bg-gray-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${breedte}%`, backgroundColor: kleur }}
-                />
-              </div>
-              {/* Stats */}
-              <div className="text-right shrink-0 min-w-[80px]">
-                <p className="text-sm font-bold text-gray-800 dark:text-white">{fmt(s.omzet)}</p>
-                <p className="text-xs text-gray-400 dark:text-slate-500">{s.aantal} transacties</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── day closing ──────────────────────────────────────────────────────────────
+// ─── day closing tab ──────────────────────────────────────────────────────────
 
 function DagafsluitingenTab({ alleTransacties }: { alleTransacties: Transactie[] }) {
   const { afsluitingen, voegAfsluitingToe, verwijderAfsluiting } = useDagafsluitingStore()
@@ -492,13 +849,17 @@ function DagafsluitingenTab({ alleTransacties }: { alleTransacties: Transactie[]
   const vandaag = alleTransacties.filter((t) => {
     if (t.isTerugboeking) return false
     const d = new Date(t.tijdstip)
-    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate()
+    return (
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate()
+    )
   })
-  const todayOmzet = vandaag.reduce((s, t) => s + t.totaal, 0)
-  const todayContant = vandaag.filter((t) => t.betaalmethode === 'contant').reduce((s, t) => s + t.totaal, 0)
-  const todayPin = vandaag.filter((t) => t.betaalmethode === 'pin').reduce((s, t) => s + t.totaal, 0)
-  const todayCadeaubon = vandaag.filter((t) => t.betaalmethode === 'cadeaubon').reduce((s, t) => s + t.totaal, 0)
-  const todayBtw = vandaag.reduce((s, t) => s + t.btw, 0)
+  const todayOmzet      = vandaag.reduce((s, t) => s + t.totaal, 0)
+  const todayContant    = vandaag.filter((t) => t.betaalmethode === 'contant').reduce((s, t) => s + t.totaal, 0)
+  const todayPin        = vandaag.filter((t) => t.betaalmethode === 'pin').reduce((s, t) => s + t.totaal, 0)
+  const todayCadeaubon  = vandaag.filter((t) => t.betaalmethode === 'cadeaubon').reduce((s, t) => s + t.totaal, 0)
+  const todayBtw        = vandaag.reduce((s, t) => s + t.btw, 0)
 
   function maakAfsluiting() {
     const afsluiting: Dagafsluiting = {
@@ -543,48 +904,89 @@ function DagafsluitingenTab({ alleTransacties }: { alleTransacties: Transactie[]
     setTimeout(() => w.print(), 300)
   }
 
+  const statCards = [
+    { label: 'Transacties', value: String(vandaag.length), mono: true },
+    { label: 'Contant',     value: fmt(todayContant),      mono: true },
+    { label: 'PIN',         value: fmt(todayPin),          mono: true },
+    { label: 'Omzet',       value: fmt(todayOmzet),        mono: true, accent: true },
+  ]
+
   return (
     <div className="space-y-5">
-      {/* Today's summary + close button */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 shadow-sm">
-        <div className="flex items-start justify-between mb-4">
+      {/* Today */}
+      <div
+        className="rap-animate rounded-2xl p-6 relative overflow-hidden"
+        style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+      >
+        <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: 'linear-gradient(to right, var(--pos-amber), var(--pos-amber-h))' }} />
+        <div className="flex items-start justify-between mb-5">
           <div>
-            <h3 className="font-bold text-gray-900 dark:text-white text-base">Vandaag afsluiten</h3>
-            <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">{formatDatumLang(today.toISOString())}</p>
+            <h3 className="font-bold text-base" style={{ color: 'var(--pos-t1)' }}>Vandaag afsluiten</h3>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--pos-t3)' }}>{formatDatumLang(today.toISOString())}</p>
           </div>
           <button
             onClick={() => setToonBevestig(true)}
             disabled={vandaag.length === 0}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95 ${vandaag.length > 0 ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm' : 'bg-gray-100 dark:bg-slate-700 text-gray-400 cursor-not-allowed'}`}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all active:scale-95"
+            style={
+              vandaag.length > 0
+                ? { backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)' }
+                : { backgroundColor: 'var(--pos-elevated)', color: 'var(--pos-t4)', cursor: 'not-allowed' }
+            }
+            onMouseEnter={(e) => { if (vandaag.length > 0) e.currentTarget.style.backgroundColor = 'var(--pos-amber-h)' }}
+            onMouseLeave={(e) => { if (vandaag.length > 0) e.currentTarget.style.backgroundColor = 'var(--pos-amber)' }}
           >
             <Lock size={14} /> Dag afsluiten
           </button>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Transacties', value: String(vandaag.length) },
-            { label: 'Contant', value: fmt(todayContant) },
-            { label: 'PIN', value: fmt(todayPin) },
-            { label: 'Totaal', value: fmt(todayOmzet) },
-          ].map(({ label, value }) => (
-            <div key={label} className="bg-gray-50 dark:bg-slate-700/50 rounded-xl px-4 py-3">
-              <p className="text-xs text-gray-400 dark:text-slate-500 mb-1">{label}</p>
-              <p className="text-lg font-bold text-gray-900 dark:text-white tabular-nums">{value}</p>
+          {statCards.map(({ label, value, mono, accent }) => (
+            <div
+              key={label}
+              className="rounded-xl px-4 py-3"
+              style={
+                accent
+                  ? { backgroundColor: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.2)' }
+                  : { backgroundColor: 'var(--pos-panel)', border: '1px solid var(--pos-hover)' }
+              }
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'var(--pos-t3)' }}>{label}</p>
+              <p
+                className={`text-lg font-bold tabular-nums ${mono ? 'rap-mono' : ''}`}
+                style={{ color: accent ? 'var(--pos-amber)' : 'var(--pos-t1)' }}
+              >
+                {value}
+              </p>
             </div>
           ))}
         </div>
 
         {toonBevestig && (
-          <div className="mt-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-2xl p-4">
-            <p className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-3">
+          <div
+            className="mt-5 rounded-2xl p-4"
+            style={{ backgroundColor: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)' }}
+          >
+            <p className="text-sm font-semibold mb-3" style={{ color: 'var(--pos-amber)' }}>
               Dagafsluiting aanmaken voor {formatDatumLang(today.toISOString())}?
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setToonBevestig(false)} className="py-2.5 rounded-xl font-semibold text-sm bg-white dark:bg-slate-700 text-gray-700 dark:text-slate-200 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 transition-colors">
+              <button
+                onClick={() => setToonBevestig(false)}
+                className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
+                style={{ backgroundColor: 'var(--pos-elevated)', color: 'var(--pos-t2)', border: '1px solid var(--pos-border)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-t4)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-elevated)' }}
+              >
                 Annuleren
               </button>
-              <button onClick={maakAfsluiting} className="py-2.5 rounded-xl font-semibold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-colors">
+              <button
+                onClick={maakAfsluiting}
+                className="py-2.5 rounded-xl font-semibold text-sm transition-colors"
+                style={{ backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)' }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-amber-h)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-amber)' }}
+              >
                 Bevestigen
               </button>
             </div>
@@ -593,50 +995,91 @@ function DagafsluitingenTab({ alleTransacties }: { alleTransacties: Transactie[]
       </div>
 
       {/* Past closings */}
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-slate-700">
-          <h3 className="font-semibold text-gray-800 dark:text-slate-200 text-sm">Vorige afsluitingen</h3>
+      <div
+        className="rap-animate rap-animate-2 rounded-2xl overflow-hidden"
+        style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+      >
+        <div className="px-6 py-4" style={{ borderBottom: '1px solid var(--pos-border)' }}>
+          <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--pos-t3)' }}>
+            Vorige afsluitingen
+          </h3>
         </div>
+
         {afsluitingen.length === 0 ? (
-          <p className="py-12 text-center text-gray-400 dark:text-slate-500 text-sm">Nog geen afsluitingen</p>
+          <div className="py-16 text-center">
+            <FileText size={32} className="mx-auto mb-3" style={{ color: 'var(--pos-t4)' }} />
+            <p className="text-sm" style={{ color: 'var(--pos-t3)' }}>Nog geen afsluitingen</p>
+          </div>
         ) : (
-          <div className="divide-y divide-gray-100 dark:divide-slate-700">
-            {afsluitingen.map((a) => {
+          <div>
+            {afsluitingen.map((a, idx) => {
               const isOpen = openId === a.id
               return (
-                <div key={a.id}>
-                  <div className="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-slate-700/40 transition-colors">
+                <div key={a.id} style={{ borderBottom: idx < afsluitingen.length - 1 ? '1px solid var(--pos-hover)' : 'none' }}>
+                  <div
+                    className="flex items-center gap-4 px-6 py-4 transition-colors group"
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(37,99,235,0.04)' }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent' }}
+                  >
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-800 dark:text-slate-200 text-sm">{formatDatumLang(a.datum)}</p>
-                      <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">{a.aantalTransacties} transacties · Afgesloten om {formatTijd(a.tijdstip)}</p>
+                      <p className="font-semibold text-sm" style={{ color: 'var(--pos-t1)' }}>
+                        {formatDatumLang(a.datum)}
+                      </p>
+                      <p className="text-xs mt-0.5 rap-mono" style={{ color: 'var(--pos-t3)' }}>
+                        {a.aantalTransacties} transacties · {formatTijd(a.tijdstip)}
+                      </p>
                     </div>
-                    <span className="text-base font-black text-gray-900 dark:text-white tabular-nums">{fmt(a.omzet)}</span>
+                    <span className="rap-mono text-lg font-bold tabular-nums" style={{ color: 'var(--pos-amber)' }}>
+                      {fmt(a.omzet)}
+                    </span>
                     <div className="flex items-center gap-1">
-                      <button onClick={() => setOpenId(isOpen ? null : a.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-                        {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      <button
+                        onClick={() => setOpenId(isOpen ? null : a.id)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ color: 'var(--pos-t3)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--pos-hover)'; e.currentTarget.style.color = 'var(--pos-t2)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--pos-t3)' }}
+                      >
+                        {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                       </button>
-                      <button onClick={() => printAfsluiting(a)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
-                        <Printer size={14} />
+                      <button
+                        onClick={() => printAfsluiting(a)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ color: 'var(--pos-t3)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(37,99,235,0.12)'; e.currentTarget.style.color = 'var(--pos-amber)' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--pos-t3)' }}
+                      >
+                        <Printer size={13} />
                       </button>
-                      <button onClick={() => verwijderAfsluiting(a.id)}
-                        className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
-                        <X size={14} />
+                      <button
+                        onClick={() => verwijderAfsluiting(a.id)}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+                        style={{ color: 'var(--pos-t3)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.15)'; e.currentTarget.style.color = '#ef4444' }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = 'var(--pos-t3)' }}
+                      >
+                        <X size={13} />
                       </button>
                     </div>
                   </div>
                   {isOpen && (
-                    <div className="px-5 pb-4 bg-gray-50 dark:bg-slate-700/30 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div
+                      className="px-6 pb-4 grid grid-cols-2 sm:grid-cols-4 gap-3"
+                      style={{ backgroundColor: 'var(--pos-panel)', borderTop: '1px solid var(--pos-border)' }}
+                    >
                       {[
-                        { label: 'Contant', value: fmt(a.contant) },
-                        { label: 'PIN', value: fmt(a.pin) },
+                        { label: 'Contant',   value: fmt(a.contant) },
+                        { label: 'PIN',       value: fmt(a.pin) },
                         { label: 'Cadeaubon', value: fmt(a.cadeaubon) },
-                        { label: 'BTW', value: fmt(a.btw) },
+                        { label: 'BTW',       value: fmt(a.btw) },
                       ].map(({ label, value }) => (
-                        <div key={label} className="bg-white dark:bg-slate-800 rounded-xl px-3 py-2.5 border border-gray-100 dark:border-slate-700">
-                          <p className="text-xs text-gray-400 dark:text-slate-500">{label}</p>
-                          <p className="text-sm font-bold text-gray-900 dark:text-white mt-0.5">{value}</p>
+                        <div
+                          key={label}
+                          className="rounded-xl px-3 py-2.5 mt-3"
+                          style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--pos-t3)' }}>{label}</p>
+                          <p className="text-sm font-bold rap-mono mt-0.5" style={{ color: 'var(--pos-t1)' }}>{value}</p>
                         </div>
                       ))}
                     </div>
@@ -653,32 +1096,32 @@ function DagafsluitingenTab({ alleTransacties }: { alleTransacties: Transactie[]
 
 // ─── main page ────────────────────────────────────────────────────────────────
 
-type Snelkeuze = 'vandaag' | 'week' | 'maand' | 'custom'
+type Snelkeuze    = 'vandaag' | 'week' | 'maand' | 'custom'
 type RapportageTab = 'overzicht' | 'dagafsluitingen'
 
 export function RapportagesPage() {
   const { filterTransacties, transacties } = useTransactieStore()
 
   const today = new Date()
-  const [van, setVan] = useState<Date>(startVanDag(today))
-  const [tot, setTot] = useState<Date>(eindVanDag(today))
-  const [snelkeuze, setSnelkeuze] = useState<Snelkeuze>('vandaag')
-  const [tab, setTab] = useState<RapportageTab>('overzicht')
+  const [van,        setVan]        = useState<Date>(startVanDag(today))
+  const [tot,        setTot]        = useState<Date>(eindVanDag(today))
+  const [snelkeuze,  setSnelkeuze]  = useState<Snelkeuze>('vandaag')
+  const [tab,        setTab]        = useState<RapportageTab>('overzicht')
 
-  function kiesVandaag() { setVan(startVanDag(today)); setTot(eindVanDag(today)); setSnelkeuze('vandaag') }
-  function kiesDezWeek() { setVan(startVanWeek(today)); setTot(eindVanDag(today)); setSnelkeuze('week') }
+  function kiesVandaag()   { setVan(startVanDag(today));   setTot(eindVanDag(today)); setSnelkeuze('vandaag') }
+  function kiesDezWeek()   { setVan(startVanWeek(today));  setTot(eindVanDag(today)); setSnelkeuze('week') }
   function kiesDezeMaand() { setVan(startVanMaand(today)); setTot(eindVanDag(today)); setSnelkeuze('maand') }
 
   const gefilterd = useMemo(
     () => filterTransacties(van, tot),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [van, tot, filterTransacties, transacties]
+    [van, tot, filterTransacties, transacties],
   )
 
-  const totaleOmzet = gefilterd.reduce((s, t) => s + t.totaal, 0)
+  const totaleOmzet      = gefilterd.reduce((s, t) => s + t.totaal, 0)
   const aantalTransacties = gefilterd.length
-  const gemiddeld = aantalTransacties > 0 ? totaleOmzet / aantalTransacties : 0
-  const totaleBtw = gefilterd.reduce((s, t) => s + t.btw, 0)
+  const gemiddeld        = aantalTransacties > 0 ? totaleOmzet / aantalTransacties : 0
+  const totaleBtw        = gefilterd.reduce((s, t) => s + t.btw, 0)
 
   function exportCsv() {
     const rows = [
@@ -690,10 +1133,10 @@ export function RapportagesPage() {
         t.btw.toFixed(2), t.totaal.toFixed(2),
       ]),
     ]
-    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+    const csv  = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
     a.href = url
     a.download = `rapportage-${toInputDate(van)}.csv`
     a.click()
@@ -721,7 +1164,7 @@ export function RapportagesPage() {
         .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
         .metric{border:1px solid #e5e7eb;border-radius:8px;padding:12px}
         .metric-label{font-size:10px;color:#666;text-transform:uppercase;margin-bottom:4px}
-        .metric-value{font-size:18px;font-weight:900}
+        .metric-value{font-size:18px;font-weight:900;font-family:monospace}
         table{width:100%;border-collapse:collapse;font-size:11px}
         th{text-align:left;padding:6px 8px;background:#f9fafb;border-bottom:1px solid #e5e7eb;font-size:10px;text-transform:uppercase;color:#6b7280}
         td{padding:6px 8px;border-bottom:1px solid #f3f4f6}
@@ -746,92 +1189,226 @@ export function RapportagesPage() {
     setTimeout(() => w.print(), 400)
   }
 
-  const btnBase = 'px-3.5 py-2 rounded-xl text-sm font-medium transition-all duration-100 active:scale-95'
-  const btnActief = 'bg-blue-600 text-white shadow-sm'
-  const btnInactief = 'bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-200 border border-gray-200 dark:border-slate-600 hover:bg-gray-50 dark:hover:bg-slate-600'
-
   const TABS: { id: RapportageTab; label: string }[] = [
-    { id: 'overzicht', label: 'Overzicht' },
+    { id: 'overzicht',       label: 'Overzicht' },
     { id: 'dagafsluitingen', label: 'Dagafsluitingen' },
   ]
 
-  return (
-    <div className="flex-1 overflow-y-auto bg-gray-50 dark:bg-slate-900">
-      <div className="max-w-6xl mx-auto px-6 py-6 space-y-5">
+  const periodLabel = snelkeuze === 'vandaag'
+    ? 'Vandaag'
+    : snelkeuze === 'week'
+    ? 'Deze week'
+    : snelkeuze === 'maand'
+    ? 'Deze maand'
+    : `${toInputDate(van)} – ${toInputDate(tot)}`
 
-        {/* Header */}
-        <div className="flex items-start justify-between">
+  return (
+    <div className="rap-root flex-1 overflow-y-auto rap-bg-dots" style={{ backgroundColor: 'var(--pos-panel)' }}>
+      <RapportageStyles />
+
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+
+        {/* ── Header ────────────────────────────────────────────────────────── */}
+        <div className="rap-animate flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Rapporten</h1>
-            <p className="text-gray-500 dark:text-slate-400 text-sm mt-0.5">Verkoop &amp; statistieken</p>
+            <div className="flex items-center gap-3 mb-1">
+              <h1
+                className="text-3xl font-extrabold leading-none"
+                style={{ letterSpacing: '-0.03em', color: 'var(--pos-t1)' }}
+              >
+                Rapporten
+              </h1>
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold"
+                style={{
+                  backgroundColor: 'rgba(37,99,235,0.12)',
+                  color: 'var(--pos-amber)',
+                  border: '1px solid rgba(37,99,235,0.2)',
+                }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: 'var(--pos-amber)' }} />
+                {periodLabel}
+              </span>
+            </div>
+            <p className="text-sm" style={{ color: 'var(--pos-t3)' }}>Verkoop &amp; statistieken</p>
           </div>
+
           <div className="flex items-center gap-2">
-            <button onClick={exportPdf}
-              className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-200 px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-gray-50 dark:hover:bg-slate-700 active:scale-95 transition-all shadow-sm">
-              <FileText size={15} /> PDF
+            <button
+              onClick={exportPdf}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-medium text-sm active:scale-95 transition-all"
+              style={{
+                backgroundColor: 'var(--pos-card)',
+                border: '1px solid var(--pos-border)',
+                color: 'var(--pos-t2)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(37,99,235,0.3)'; e.currentTarget.style.color = 'var(--pos-amber)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--pos-border)'; e.currentTarget.style.color = 'var(--pos-t2)' }}
+            >
+              <FileText size={14} /> PDF
             </button>
-            <button onClick={exportCsv}
-              className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 text-gray-600 dark:text-slate-200 px-4 py-2.5 rounded-xl font-medium text-sm hover:bg-gray-50 dark:hover:bg-slate-700 active:scale-95 transition-all shadow-sm">
-              <Download size={15} /> CSV
+            <button
+              onClick={exportCsv}
+              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl font-medium text-sm active:scale-95 transition-all"
+              style={{
+                backgroundColor: 'var(--pos-card)',
+                border: '1px solid var(--pos-border)',
+                color: 'var(--pos-t2)',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'rgba(37,99,235,0.3)'; e.currentTarget.style.color = 'var(--pos-amber)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--pos-border)'; e.currentTarget.style.color = 'var(--pos-t2)' }}
+            >
+              <Download size={14} /> CSV
             </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-1 bg-gray-100 dark:bg-slate-800 p-1 rounded-2xl w-fit">
+        {/* ── Tabs ──────────────────────────────────────────────────────────── */}
+        <div className="rap-animate rap-animate-1 flex gap-0" style={{ borderBottom: '1px solid var(--pos-border)' }}>
           {TABS.map((t) => (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              className={`px-5 py-2 rounded-xl text-sm font-medium transition-all duration-150 ${tab === t.id ? 'bg-white dark:bg-slate-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200'}`}>
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className="relative px-5 py-3 text-sm font-semibold transition-colors"
+              style={{ color: tab === t.id ? 'var(--pos-amber)' : 'var(--pos-t3)' }}
+              onMouseEnter={(e) => { if (tab !== t.id) e.currentTarget.style.color = 'var(--pos-t2)' }}
+              onMouseLeave={(e) => { if (tab !== t.id) e.currentTarget.style.color = 'var(--pos-t3)' }}
+            >
               {t.label}
+              {tab === t.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-[2px] rounded-t" style={{ backgroundColor: 'var(--pos-amber)' }} />
+              )}
             </button>
           ))}
         </div>
 
-        {tab === 'dagafsluitingen' ? (
+        {/* ── Dagafsluitingen ───────────────────────────────────────────────── */}
+        {tab === 'dagafsluitingen' && (
           <DagafsluitingenTab alleTransacties={transacties} />
-        ) : (
+        )}
+
+        {/* ── Overzicht ─────────────────────────────────────────────────────── */}
+        {tab === 'overzicht' && (
           <>
             {/* Date filter */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 shadow-sm px-5 py-4 flex flex-wrap items-end gap-4">
-              <div className="flex gap-4">
+            <div
+              className="rap-animate rap-animate-2 rounded-2xl px-5 py-4 flex flex-wrap items-end gap-5"
+              style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+            >
+              <div className="flex gap-4 flex-wrap">
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Van</label>
-                  <input type="date" value={toInputDate(van)} max={toInputDate(tot)}
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--pos-t3)' }}>
+                    Van
+                  </label>
+                  <input
+                    type="date"
+                    value={toInputDate(van)}
+                    max={toInputDate(tot)}
                     onChange={(e) => { setVan(fromInputDate(e.target.value)); setSnelkeuze('custom') }}
-                    className="border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-white" />
+                    className="rap-input rounded-xl px-3 py-2 text-sm transition-all"
+                    style={{
+                      backgroundColor: 'var(--pos-elevated)',
+                      border: '1px solid var(--pos-border)',
+                      color: 'var(--pos-t1)',
+                    }}
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-slate-400 mb-1">Tot</label>
-                  <input type="date" value={toInputDate(tot)} min={toInputDate(van)}
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--pos-t3)' }}>
+                    Tot
+                  </label>
+                  <input
+                    type="date"
+                    value={toInputDate(tot)}
+                    min={toInputDate(van)}
                     onChange={(e) => { setTot(fromInputDate(e.target.value)); setSnelkeuze('custom') }}
-                    className="border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-slate-700 text-gray-900 dark:text-white" />
+                    className="rap-input rounded-xl px-3 py-2 text-sm transition-all"
+                    style={{
+                      backgroundColor: 'var(--pos-elevated)',
+                      border: '1px solid var(--pos-border)',
+                      color: 'var(--pos-t1)',
+                    }}
+                  />
                 </div>
               </div>
-              <div className="flex gap-2 pb-0.5">
-                <button onClick={kiesVandaag} className={`${btnBase} ${snelkeuze === 'vandaag' ? btnActief : btnInactief}`}>Vandaag</button>
-                <button onClick={kiesDezWeek} className={`${btnBase} ${snelkeuze === 'week' ? btnActief : btnInactief}`}>Deze week</button>
-                <button onClick={kiesDezeMaand} className={`${btnBase} ${snelkeuze === 'maand' ? btnActief : btnInactief}`}>Deze maand</button>
+
+              <div className="flex gap-1.5 pb-0.5">
+                {[
+                  { label: 'Vandaag',      key: 'vandaag', fn: kiesVandaag },
+                  { label: 'Deze week',    key: 'week',    fn: kiesDezWeek },
+                  { label: 'Deze maand',   key: 'maand',   fn: kiesDezeMaand },
+                ].map(({ label, key, fn }) => (
+                  <button
+                    key={key}
+                    onClick={fn}
+                    className="px-3.5 py-2 rounded-xl text-sm font-medium transition-all active:scale-95"
+                    style={
+                      snelkeuze === key
+                        ? { backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)' }
+                        : {
+                            backgroundColor: 'var(--pos-elevated)',
+                            color: 'var(--pos-t2)',
+                            border: '1px solid var(--pos-border)',
+                          }
+                    }
+                    onMouseEnter={(e) => {
+                      if (snelkeuze !== key) {
+                        e.currentTarget.style.backgroundColor = 'var(--pos-t4)'
+                      } else {
+                        e.currentTarget.style.backgroundColor = 'var(--pos-amber-h)'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (snelkeuze !== key) {
+                        e.currentTarget.style.backgroundColor = 'var(--pos-elevated)'
+                      } else {
+                        e.currentTarget.style.backgroundColor = 'var(--pos-amber)'
+                      }
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* Metric cards */}
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-              <MetricCard label="Totale omzet" value={fmt(totaleOmzet)} icon={TrendingUp} iconColor="text-green-600" iconBg="bg-green-50 dark:bg-green-900/30" />
-              <MetricCard label="Transacties" value={String(aantalTransacties)} icon={ShoppingCart} iconColor="text-blue-600" iconBg="bg-blue-50 dark:bg-blue-900/30" />
-              <MetricCard label="Gemiddeld" value={fmt(gemiddeld)} icon={ArrowUpRight} iconColor="text-orange-500" iconBg="bg-orange-50 dark:bg-orange-900/30" />
-              <MetricCard label="BTW totaal" value={fmt(totaleBtw)} icon={FileText} iconColor="text-purple-600" iconBg="bg-purple-50 dark:bg-purple-900/30" />
+              <MetricCard
+                label="Totale omzet"
+                value={fmt(totaleOmzet)}
+                accentColor="var(--pos-amber)"
+                delay={0.10}
+              />
+              <MetricCard
+                label="Transacties"
+                value={String(aantalTransacties)}
+                sub={aantalTransacties > 0 ? `gem. ${fmt(gemiddeld)}` : undefined}
+                accentColor="#9CA3AF"
+                delay={0.15}
+              />
+              <MetricCard
+                label="Gemiddeld"
+                value={fmt(gemiddeld)}
+                accentColor="#10B981"
+                delay={0.20}
+              />
+              <MetricCard
+                label="BTW totaal"
+                value={fmt(totaleBtw)}
+                accentColor="#8B5CF6"
+                delay={0.25}
+              />
             </div>
 
-            {/* Charts row */}
+            {/* Charts */}
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               <OmzetBarChart transacties={transacties} />
               <OmzetPerCategorie transacties={gefilterd} />
             </div>
 
-            {/* Employee stats */}
+            {/* Employee + Transaction list */}
             <MedewerkerStats transacties={gefilterd} />
-
-            {/* Transaction list */}
             <TransactieLijst transacties={gefilterd} />
           </>
         )}

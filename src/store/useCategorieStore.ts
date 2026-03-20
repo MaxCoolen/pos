@@ -47,14 +47,12 @@ export const useCategorieStore = create<CategorieStore>()(
         const storeId = useAppStore.getState().currentStoreId
         const maxVolgorde = Math.max(0, ...get().categorieen.map((c) => c.volgorde))
         if (supabase && storeId) {
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from('categories')
             .insert({ store_id: storeId, naam: cat.naam, kleur: cat.kleur, volgorde: maxVolgorde + 1 })
             .select()
             .single()
-          if (!error && data) {
-            set((state) => ({ categorieen: [...state.categorieen, dbToCategorie(data)] }))
-          }
+          if (error) console.error(error)
         } else {
           set((state) => ({
             categorieen: [
@@ -134,7 +132,22 @@ export const useCategorieStore = create<CategorieStore>()(
           .select('*')
           .eq('store_id', storeId)
           .order('volgorde')
-        if (!error && data) {
+        if (error) { console.error('[Categorieën] Fout bij laden:', error); return }
+
+        if (data.length === 0) {
+          // Eerste keer: schrijf demo-startdata éénmalig naar Supabase
+          console.log('[Categorieën] Startdata aangemaakt in Supabase')
+          const { data: inserted } = await supabase
+            .from('categories')
+            .insert(DEMO_CATEGORIEEN.map((c) => ({
+              store_id: storeId,
+              naam: c.naam,
+              kleur: c.kleur,
+              volgorde: c.volgorde,
+            })))
+            .select()
+          if (inserted) set({ categorieen: inserted.map(dbToCategorie) })
+        } else {
           set({ categorieen: data.map(dbToCategorie) })
         }
 
@@ -146,7 +159,10 @@ export const useCategorieStore = create<CategorieStore>()(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (payload: any) => {
               if (payload.eventType === 'INSERT') {
-                set((s) => ({ categorieen: [...s.categorieen, dbToCategorie(payload.new)] }))
+                set((s) => {
+                  if (s.categorieen.some((c) => c.id === payload.new.id)) return s
+                  return { categorieen: [...s.categorieen, dbToCategorie(payload.new)] }
+                })
               } else if (payload.eventType === 'UPDATE') {
                 set((s) => ({
                   categorieen: s.categorieen.map((c) =>

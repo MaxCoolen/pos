@@ -58,14 +58,11 @@ export const usePersoneelStore = create<PersoneelStore>()(
       voegMedewerkerToe: async (m) => {
         const storeId = useAppStore.getState().currentStoreId
         if (supabase && storeId) {
-          const { data, error } = await supabase
+          // Don't update local state here — the realtime subscription will fire
+          // on the INSERT and add the employee, preventing a duplicate
+          await supabase
             .from('employees')
             .insert({ store_id: storeId, naam: m.naam, initialen: m.initialen, kleur: m.kleur, rol: m.rol, aktief: true })
-            .select()
-            .single()
-          if (!error && data) {
-            set((state) => ({ medewerkers: [...state.medewerkers, dbToMedewerker(data)] }))
-          }
         } else {
           set((state) => ({
             medewerkers: [...state.medewerkers, { ...m, id: Date.now().toString() }],
@@ -103,9 +100,8 @@ export const usePersoneelStore = create<PersoneelStore>()(
           .select('*')
           .eq('store_id', storeId)
           .eq('aktief', true)
-        if (!error && data) {
-          set({ medewerkers: data.map(dbToMedewerker) })
-        }
+        if (error) { console.error('[Personeel] Fout bij laden:', error); return }
+        if (data) set({ medewerkers: data.map(dbToMedewerker) })
 
         const channel = supabase
           .channel(`store-employees-${storeId}`)

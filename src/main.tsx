@@ -4,7 +4,10 @@ import './index.css'
 import App from './App'
 import { CustomerDisplayPage } from './pages/CustomerDisplayPage'
 
-const isKlantenscherm = window.location.pathname === '/customer-display'
+// Detecteer klantenscherm via pathname (browser/Electron dev) of hash (Electron productie)
+const isKlantenscherm =
+  window.location.pathname === '/customer-display' ||
+  window.location.hash === '#klantenscherm'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

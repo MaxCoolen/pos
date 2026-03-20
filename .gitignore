@@ -20,3 +20,4 @@ Thumbs.db
 # Local editor files
 *.local
 .vscode/settings.json
+stripe-terminal-js-demo/

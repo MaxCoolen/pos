@@ -29,12 +29,22 @@ const LABEL_DIMS_MM: Record<LabelGrootte, { w: number; h: number }> = {
 }
 
 const inputCls =
-  'w-full border border-gray-200 dark:border-slate-600 rounded-xl px-3 py-2 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500'
+  'w-full border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--pos-amber)] placeholder-[var(--pos-t4)]'
 
-const sectionCls =
-  'bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-5 space-y-4'
+const inputStyle = {
+  backgroundColor: 'var(--pos-elevated)',
+  borderColor: 'var(--pos-border)',
+  color: 'var(--pos-t1)',
+}
 
-const labelCls = 'block text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide mb-1.5'
+const sectionStyle = {
+  backgroundColor: 'var(--pos-card)',
+  border: '1px solid var(--pos-border)',
+  borderRadius: '1rem',
+  padding: '1.25rem',
+}
+
+const labelCls = 'block text-xs font-bold uppercase tracking-wide mb-1.5'
 
 // ─── form state ───────────────────────────────────────────────────────────────
 
@@ -64,6 +74,7 @@ function leegForm(): FormData {
 }
 
 // ─── label content (renders the actual food label) ────────────────────────────
+// NOTE: This component must remain white/black for correct print output.
 
 function LabelContent({ form }: { form: FormData }) {
   const { naam, ingredienten, voedingswaarden: vw, eenheid, bereidingswijze, allergenen, includeRegulationFooter } = form
@@ -211,10 +222,10 @@ function LabelPreview({ form }: { form: FormData }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs font-bold text-gray-500 dark:text-slate-400 uppercase tracking-wide">
+        <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--pos-tlabel)' }}>
           Live voorbeeld
         </p>
-        <span className="text-xs text-gray-400 dark:text-slate-500 font-mono">
+        <span className="text-xs font-mono" style={{ color: 'var(--pos-t3)' }}>
           {dims.w} × {dims.h} mm
         </span>
       </div>
@@ -227,8 +238,8 @@ function LabelPreview({ form }: { form: FormData }) {
       >
         {/* Shadow + border to simulate real label */}
         <div
-          className="absolute inset-0 rounded shadow-lg border border-gray-300"
-          style={{ boxShadow: '2px 2px 8px rgba(0,0,0,0.15)' }}
+          className="absolute inset-0 rounded"
+          style={{ border: '1px solid #d1d5db', boxShadow: '2px 2px 8px rgba(0,0,0,0.4)' }}
         />
         {/* Scaled label content */}
         <div
@@ -244,7 +255,7 @@ function LabelPreview({ form }: { form: FormData }) {
         </div>
       </div>
 
-      <p className="text-center text-xs text-gray-400 dark:text-slate-500 mt-2">
+      <p className="text-center text-xs mt-2" style={{ color: 'var(--pos-t3)' }}>
         Schaal {Math.round(scale * 100)}%
       </p>
     </div>
@@ -272,7 +283,8 @@ function IngredientRij({
           value={ing.naam}
           onChange={(e) => onChange({ naam: e.target.value })}
           placeholder={`Ingrediënt ${index + 1}`}
-          className="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-sm bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border rounded-lg px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--pos-amber)] placeholder-[var(--pos-t4)]"
+          style={inputStyle}
         />
       </div>
       <div className="w-16">
@@ -281,25 +293,30 @@ function IngredientRij({
           value={ing.percentage}
           onChange={(e) => onChange({ percentage: e.target.value })}
           placeholder="%"
-          className="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 text-sm text-center bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full border rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--pos-amber)] placeholder-[var(--pos-t4)]"
+          style={inputStyle}
         />
       </div>
       <button
         type="button"
         title="Markeer als allergeen (vetgedrukt)"
         onClick={() => onChange({ isAllergen: !ing.isAllergen })}
-        className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+        style={
           ing.isAllergen
-            ? 'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400'
-            : 'bg-gray-100 dark:bg-slate-700 text-gray-400 hover:text-gray-600 dark:hover:text-slate-300'
-        }`}
+            ? { backgroundColor: 'rgba(37,99,235,0.15)', color: 'var(--pos-amber)' }
+            : { backgroundColor: 'var(--pos-elevated)', color: 'var(--pos-t3)' }
+        }
       >
         <Bold size={13} />
       </button>
       <button
         type="button"
         onClick={onVerwijder}
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors hover:text-red-400"
+        style={{ color: 'var(--pos-t3)', backgroundColor: 'transparent' }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(239,68,68,0.1)' }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
       >
         <Trash2 size={13} />
       </button>
@@ -408,7 +425,7 @@ export function EtikettenPage() {
     const dims = LABEL_DIMS_MM[form.labelGrootte]
     const style = document.createElement('style')
     style.id = 'etiket-print-override'
-    style.innerHTML = `
+    style.textContent = `
       @media print {
         @page { size: ${dims.w}mm ${dims.h}mm; margin: 0; }
         body * { visibility: hidden !important; }
@@ -442,51 +459,56 @@ export function EtikettenPage() {
 
   const inputNl = (field: keyof typeof LEGE_VOEDINGSWAARDEN, label: string, unit: string, sub = false) => (
     <div className={`flex items-center gap-3 ${sub ? 'pl-4' : ''}`}>
-      <label className="flex-1 text-sm text-gray-600 dark:text-slate-400">{label}</label>
+      <label className="flex-1 text-sm" style={{ color: 'var(--pos-t2)' }}>{label}</label>
       <div className="flex items-center gap-1">
         <input
           type="text"
           inputMode="decimal"
           value={form.voedingswaarden[field]}
           onChange={(e) => updateVoeding(field, e.target.value)}
-          className="w-20 border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-20 border rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[var(--pos-amber)] placeholder-[var(--pos-t4)]"
+          style={inputStyle}
           placeholder="0"
         />
-        <span className="text-xs text-gray-400 dark:text-slate-500 w-8">{unit}</span>
+        <span className="text-xs w-8" style={{ color: 'var(--pos-t3)' }}>{unit}</span>
       </div>
     </div>
   )
 
   return (
-    <div className="flex flex-1 overflow-hidden bg-gray-50 dark:bg-slate-950">
+    <div className="flex flex-1 overflow-hidden" style={{ backgroundColor: 'var(--pos-panel)' }}>
       {/* ── LEFT: Form panel ── */}
       <div className="flex-1 overflow-y-auto p-6 space-y-5 min-w-0">
 
         {/* Header */}
         <div className="flex items-start justify-between">
           <div>
-            <h1 className="text-2xl font-black text-gray-900 dark:text-white">Etiketten</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400 mt-0.5">
+            <h1 className="text-2xl font-black" style={{ color: 'var(--pos-t1)' }}>Etiketten</h1>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--pos-t2)' }}>
               EU 1169/2011 · NVWA voedingsetiket generator
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
             <button
               onClick={nieuwEtiket}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-gray-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={{ color: 'var(--pos-t2)', backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--pos-elevated)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--pos-card)' }}
             >
               <FilePlus size={15} /> Nieuw
             </button>
             <button
               onClick={opslaan}
               disabled={!form.naam.trim()}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
+              style={
                 savedFeedback
-                  ? 'bg-emerald-500 text-white'
+                  ? { backgroundColor: '#10b981', color: '#ffffff' }
                   : form.naam.trim()
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-gray-100 dark:bg-slate-800 text-gray-400 cursor-not-allowed'
-              }`}
+                  ? { backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)' }
+                  : { backgroundColor: 'var(--pos-elevated)', color: 'var(--pos-t3)', cursor: 'not-allowed' }
+              }
             >
               {savedFeedback ? <><Check size={15} /> Opgeslagen!</> : <><Save size={15} /> Opslaan</>}
             </button>
@@ -495,33 +517,64 @@ export function EtikettenPage() {
 
         {/* Saved products list */}
         {producten.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 overflow-hidden shadow-sm">
+          <div style={{ backgroundColor: 'var(--pos-card)', border: '1px solid var(--pos-border)', borderRadius: '1rem', overflow: 'hidden' }}>
             <button
               onClick={() => setToonSavedList((v) => !v)}
-              className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors"
+              className="w-full flex items-center justify-between px-5 py-3 transition-colors"
+              style={{ color: 'var(--pos-t1)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(255,255,255,0.03)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
             >
-              <span className="text-sm font-semibold text-gray-700 dark:text-slate-300">
+              <span className="text-sm font-semibold" style={{ color: 'var(--pos-t1)' }}>
                 Opgeslagen etiketten ({producten.length})
               </span>
-              {toonSavedList ? <ChevronUp size={16} className="text-gray-400" /> : <ChevronDown size={16} className="text-gray-400" />}
+              {toonSavedList
+                ? <ChevronUp size={16} style={{ color: 'var(--pos-t3)' }} />
+                : <ChevronDown size={16} style={{ color: 'var(--pos-t3)' }} />}
             </button>
             {toonSavedList && (
-              <div className="border-t border-gray-100 dark:border-slate-700 divide-y divide-gray-100 dark:divide-slate-700 max-h-48 overflow-y-auto">
+              <div className="max-h-48 overflow-y-auto" style={{ borderTop: '1px solid var(--pos-border)' }}>
                 {producten.map((p) => (
-                  <div key={p.id} className={`flex items-center gap-3 px-5 py-3 hover:bg-gray-50 dark:hover:bg-slate-700/50 transition-colors ${opgeslaanId === p.id ? 'bg-blue-50 dark:bg-blue-950/30' : ''}`}>
-                    <Tag size={14} className="text-gray-400 shrink-0" />
-                    <button onClick={() => laadProduct(p)} className="flex-1 text-left text-sm font-medium text-gray-800 dark:text-slate-200 truncate hover:text-blue-600 dark:hover:text-blue-400">
+                  <div
+                    key={p.id}
+                    className="flex items-center gap-3 px-5 py-3 transition-colors"
+                    style={{
+                      borderTop: '1px solid var(--pos-hover)',
+                      backgroundColor: opgeslaanId === p.id ? 'rgba(37,99,235,0.08)' : 'transparent',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (opgeslaanId !== p.id) (e.currentTarget as HTMLDivElement).style.backgroundColor = 'rgba(255,255,255,0.03)'
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLDivElement).style.backgroundColor = opgeslaanId === p.id ? 'rgba(37,99,235,0.08)' : 'transparent'
+                    }}
+                  >
+                    <Tag size={14} style={{ color: 'var(--pos-t3)', flexShrink: 0 }} />
+                    <button
+                      onClick={() => laadProduct(p)}
+                      className="flex-1 text-left text-sm font-medium truncate transition-colors"
+                      style={{ color: opgeslaanId === p.id ? 'var(--pos-amber)' : 'var(--pos-t1)' }}
+                    >
                       {p.naam}
                     </button>
-                    <span className="text-xs text-gray-400 dark:text-slate-500 shrink-0">{LABEL_GROOTTE_LABELS[p.labelGrootte]}</span>
+                    <span className="text-xs shrink-0" style={{ color: 'var(--pos-t3)' }}>{LABEL_GROOTTE_LABELS[p.labelGrootte]}</span>
                     <button
                       onClick={() => laadEnPrint(p)}
                       title="Afdrukken"
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors shrink-0">
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                      style={{ color: 'var(--pos-t3)' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--pos-amber)'; (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(37,99,235,0.1)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--pos-t3)'; (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+                    >
                       <Printer size={13} />
                     </button>
-                    <button onClick={() => { verwijderProduct(p.id); if (opgeslaanId === p.id) nieuwEtiket() }}
-                      className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors shrink-0">
+                    <button
+                      onClick={() => { verwijderProduct(p.id); if (opgeslaanId === p.id) nieuwEtiket() }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                      style={{ color: 'var(--pos-t3)' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = '#ef4444'; (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'rgba(239,68,68,0.1)' }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--pos-t3)'; (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+                    >
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -532,31 +585,32 @@ export function EtikettenPage() {
         )}
 
         {/* 1. Productnaam */}
-        <div className={sectionCls}>
-          <h2 className="font-bold text-gray-900 dark:text-white text-sm">1. Productnaam</h2>
+        <div style={{ ...sectionStyle, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <h2 className="font-bold text-sm" style={{ color: 'var(--pos-t1)' }}>1. Productnaam</h2>
           <div>
-            <label className={labelCls}>Naam *</label>
+            <label className={labelCls} style={{ color: 'var(--pos-tlabel)' }}>Naam *</label>
             <input
               type="text"
               value={form.naam}
               onChange={(e) => setForm((f) => ({ ...f, naam: e.target.value }))}
               className={inputCls}
+              style={inputStyle}
               placeholder="bijv. Ambachtelijk Roggebrood"
             />
           </div>
         </div>
 
         {/* 2. Ingrediënten */}
-        <div className={sectionCls}>
+        <div style={{ ...sectionStyle, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-gray-900 dark:text-white text-sm">2. Ingrediënten</h2>
-            <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-slate-500">
+            <h2 className="font-bold text-sm" style={{ color: 'var(--pos-t1)' }}>2. Ingrediënten</h2>
+            <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--pos-t3)' }}>
               <Bold size={11} /> = allergeen (vetgedrukt)
             </div>
           </div>
 
           {form.ingredienten.length === 0 && (
-            <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-3">
+            <p className="text-sm text-center py-3" style={{ color: 'var(--pos-t3)' }}>
               Nog geen ingrediënten toegevoegd.
             </p>
           )}
@@ -576,20 +630,34 @@ export function EtikettenPage() {
           <button
             type="button"
             onClick={voegIngredientToe}
-            className="flex items-center gap-2 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 transition-colors"
+            className="flex items-center gap-2 text-sm font-semibold transition-colors"
+            style={{ color: 'var(--pos-amber)' }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--pos-amber-h)' }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.color = 'var(--pos-amber)' }}
           >
             <Plus size={15} /> Ingrediënt toevoegen
           </button>
         </div>
 
         {/* 3. Voedingswaarden */}
-        <div className={sectionCls}>
+        <div style={{ ...sectionStyle, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="flex items-center justify-between">
-            <h2 className="font-bold text-gray-900 dark:text-white text-sm">3. Voedingswaarden</h2>
-            <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-slate-600 shrink-0">
+            <h2 className="font-bold text-sm" style={{ color: 'var(--pos-t1)' }}>3. Voedingswaarden</h2>
+            <div
+              className="flex rounded-xl overflow-hidden shrink-0"
+              style={{ border: '1px solid var(--pos-border)' }}
+            >
               {(['per 100g', 'per 100ml'] as const).map((e) => (
-                <button key={e} onClick={() => setForm((f) => ({ ...f, eenheid: e }))}
-                  className={`px-3 py-1.5 text-xs font-bold transition-colors ${form.eenheid === e ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-50 dark:hover:bg-slate-600'}`}>
+                <button
+                  key={e}
+                  onClick={() => setForm((f) => ({ ...f, eenheid: e }))}
+                  className="px-3 py-1.5 text-xs font-bold transition-colors"
+                  style={
+                    form.eenheid === e
+                      ? { backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)' }
+                      : { backgroundColor: 'var(--pos-elevated)', color: 'var(--pos-t2)' }
+                  }
+                >
                   {e}
                 </button>
               ))}
@@ -598,20 +666,32 @@ export function EtikettenPage() {
 
           <div className="space-y-2">
             <div className="flex items-center gap-3">
-              <label className="flex-1 text-sm font-semibold text-gray-700 dark:text-slate-300">Energie</label>
+              <label className="flex-1 text-sm font-semibold" style={{ color: 'var(--pos-t2)' }}>Energie</label>
               <div className="flex items-center gap-2">
-                <input type="text" inputMode="decimal" value={form.voedingswaarden.energie_kj}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.voedingswaarden.energie_kj}
                   onChange={(e) => updateVoeding('energie_kj', e.target.value)}
-                  className="w-20 border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
-                <span className="text-xs text-gray-400 dark:text-slate-500">kJ</span>
-                <input type="text" inputMode="decimal" value={form.voedingswaarden.energie_kcal}
+                  className="w-20 border rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[var(--pos-amber)] placeholder-[var(--pos-t4)]"
+                  style={inputStyle}
+                  placeholder="0"
+                />
+                <span className="text-xs" style={{ color: 'var(--pos-t3)' }}>kJ</span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={form.voedingswaarden.energie_kcal}
                   onChange={(e) => updateVoeding('energie_kcal', e.target.value)}
-                  className="w-20 border border-gray-200 dark:border-slate-600 rounded-lg px-2 py-1.5 text-sm text-right bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="0" />
-                <span className="text-xs text-gray-400 dark:text-slate-500">kcal</span>
+                  className="w-20 border rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-[var(--pos-amber)] placeholder-[var(--pos-t4)]"
+                  style={inputStyle}
+                  placeholder="0"
+                />
+                <span className="text-xs" style={{ color: 'var(--pos-t3)' }}>kcal</span>
               </div>
             </div>
 
-            <div className="border-t border-gray-100 dark:border-slate-700 pt-2 space-y-2">
+            <div className="pt-2 space-y-2" style={{ borderTop: '1px solid var(--pos-border)' }}>
               {inputNl('vet', 'Vet', 'g')}
               {inputNl('vet_verzadigd', 'waarvan verzadigde vetzuren', 'g', true)}
               {inputNl('koolhydraten', 'Koolhydraten', 'g')}
@@ -623,22 +703,25 @@ export function EtikettenPage() {
         </div>
 
         {/* 4. Bereidingswijze */}
-        <div className={sectionCls}>
-          <h2 className="font-bold text-gray-900 dark:text-white text-sm">4. Bereidingswijze <span className="font-normal text-gray-400">(optioneel)</span></h2>
+        <div style={{ ...sectionStyle, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <h2 className="font-bold text-sm" style={{ color: 'var(--pos-t1)' }}>
+            4. Bereidingswijze <span className="font-normal" style={{ color: 'var(--pos-t3)' }}>(optioneel)</span>
+          </h2>
           <textarea
             rows={3}
             value={form.bereidingswijze}
             onChange={(e) => setForm((f) => ({ ...f, bereidingswijze: e.target.value }))}
             className={`${inputCls} resize-none`}
+            style={inputStyle}
             placeholder="bijv. Bewaren op een koele, droge plaats. Na opening bewaren in de koelkast."
           />
         </div>
 
         {/* 5. Allergenen */}
-        <div className={sectionCls}>
+        <div style={{ ...sectionStyle, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div className="flex items-start gap-2">
-            <h2 className="font-bold text-gray-900 dark:text-white text-sm">5. Allergenen</h2>
-            <span className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">(optioneel — voor apart allergenenoverzicht)</span>
+            <h2 className="font-bold text-sm" style={{ color: 'var(--pos-t1)' }}>5. Allergenen</h2>
+            <span className="text-xs mt-0.5" style={{ color: 'var(--pos-t3)' }}>(optioneel — voor apart allergenenoverzicht)</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -649,15 +732,16 @@ export function EtikettenPage() {
                   key={al}
                   type="button"
                   onClick={() => toggleAllergen(al)}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-left transition-all ${
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium text-left transition-all"
+                  style={
                     geselecteerd
-                      ? 'bg-orange-100 dark:bg-orange-900/40 border border-orange-300 dark:border-orange-700 text-orange-800 dark:text-orange-300'
-                      : 'bg-gray-50 dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-400 hover:border-gray-300 dark:hover:border-slate-500'
-                  }`}
+                      ? { backgroundColor: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.4)', color: 'var(--pos-amber)' }
+                      : { backgroundColor: 'var(--pos-elevated)', border: '1px solid var(--pos-border)', color: 'var(--pos-t2)' }
+                  }
                 >
                   {geselecteerd
-                    ? <AlertCircle size={13} className="shrink-0 text-orange-500" />
-                    : <div className="w-[13px] h-[13px] rounded-full border border-gray-300 dark:border-slate-500 shrink-0" />}
+                    ? <AlertCircle size={13} style={{ flexShrink: 0, color: 'var(--pos-amber)' }} />
+                    : <div className="w-[13px] h-[13px] rounded-full shrink-0" style={{ border: '1px solid rgba(255,255,255,0.15)' }} />}
                   <span className="truncate text-xs">{al}</span>
                 </button>
               )
@@ -666,22 +750,23 @@ export function EtikettenPage() {
         </div>
 
         {/* 6. Label opties */}
-        <div className={sectionCls}>
-          <h2 className="font-bold text-gray-900 dark:text-white text-sm">6. Label opties</h2>
+        <div style={{ ...sectionStyle, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <h2 className="font-bold text-sm" style={{ color: 'var(--pos-t1)' }}>6. Label opties</h2>
 
           <div>
-            <label className={labelCls}>Labelformaat</label>
+            <label className={labelCls} style={{ color: 'var(--pos-tlabel)' }}>Labelformaat</label>
             <div className="grid grid-cols-3 gap-2">
               {LABEL_GROOTTES.map((g) => (
                 <button
                   key={g}
                   type="button"
                   onClick={() => setForm((f) => ({ ...f, labelGrootte: g }))}
-                  className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all text-center ${
+                  className="py-2.5 px-3 rounded-xl text-xs font-semibold transition-all text-center"
+                  style={
                     form.labelGrootte === g
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-300/40'
-                      : 'bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600'
-                  }`}
+                      ? { backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }
+                      : { backgroundColor: 'var(--pos-elevated)', color: 'var(--pos-t2)', border: '1px solid var(--pos-border)' }
+                  }
                 >
                   {LABEL_GROOTTE_LABELS[g]}
                 </button>
@@ -690,28 +775,42 @@ export function EtikettenPage() {
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+            <label className="text-sm font-medium" style={{ color: 'var(--pos-t2)' }}>
               EU 1169/2011 voettekst
             </label>
             <button
               type="button"
               onClick={() => setForm((f) => ({ ...f, includeRegulationFooter: !f.includeRegulationFooter }))}
-              className={`relative w-11 h-6 rounded-full transition-colors ${form.includeRegulationFooter ? 'bg-blue-600' : 'bg-gray-200 dark:bg-slate-600'}`}
+              className="relative w-11 h-6 rounded-full transition-colors"
+              style={{ backgroundColor: form.includeRegulationFooter ? 'var(--pos-amber)' : 'var(--pos-elevated)' }}
             >
-              <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.includeRegulationFooter ? 'translate-x-5' : ''}`} />
+              <span
+                className="absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform"
+                style={{ transform: form.includeRegulationFooter ? 'translateX(20px)' : 'translateX(0)' }}
+              />
             </button>
           </div>
         </div>
       </div>
 
       {/* ── RIGHT: Preview panel ── */}
-      <div ref={previewRef} className="w-[440px] shrink-0 border-l border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-y-auto flex flex-col">
-        <div className="sticky top-0 bg-white dark:bg-slate-900 border-b border-gray-100 dark:border-slate-800 px-6 py-4 z-10">
+      <div
+        ref={previewRef}
+        className="w-[440px] shrink-0 overflow-y-auto flex flex-col"
+        style={{ backgroundColor: 'var(--pos-card)', borderLeft: '1px solid var(--pos-border)' }}
+      >
+        <div
+          className="sticky top-0 px-6 py-4 z-10"
+          style={{ backgroundColor: 'var(--pos-card)', borderBottom: '1px solid var(--pos-border)' }}
+        >
           <div className="flex items-center justify-between">
-            <p className="font-bold text-gray-900 dark:text-white text-sm">Etiket preview</p>
+            <p className="font-bold text-sm" style={{ color: 'var(--pos-t1)' }}>Etiket preview</p>
             <button
               onClick={printEtiket}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-700 dark:hover:bg-gray-100 active:scale-95 transition-all shadow-sm"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold active:scale-95 transition-all"
+              style={{ backgroundColor: 'var(--pos-amber)', color: 'var(--pos-amber-t)' }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--pos-amber-h)' }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'var(--pos-amber)' }}
             >
               <Printer size={15} /> Afdrukken / PDF
             </button>
@@ -723,11 +822,14 @@ export function EtikettenPage() {
           <LabelPreview form={form} />
 
           {/* Info box */}
-          <div className="w-full bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900 rounded-2xl p-4 space-y-2">
-            <p className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wide">
+          <div
+            className="w-full rounded-2xl p-4 space-y-2"
+            style={{ backgroundColor: 'rgba(37,99,235,0.07)', border: '1px solid rgba(37,99,235,0.15)' }}
+          >
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--pos-amber)' }}>
               EU Verordening 1169/2011
             </p>
-            <ul className="text-xs text-blue-700 dark:text-blue-400 space-y-1 leading-relaxed">
+            <ul className="text-xs space-y-1 leading-relaxed" style={{ color: 'var(--pos-t2)' }}>
               <li>✓ Verplichte volgorde: naam → ingrediënten → voedingswaarden</li>
               <li>✓ Allergenen vetgedrukt in ingrediëntenlijst</li>
               <li>✓ Energiewaarde in kJ én kcal</li>
@@ -737,12 +839,15 @@ export function EtikettenPage() {
           </div>
 
           {/* Thermal printer tip */}
-          <div className="w-full bg-gray-50 dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-4">
-            <p className="text-xs font-bold text-gray-600 dark:text-slate-400 uppercase tracking-wide mb-1.5">
+          <div
+            className="w-full rounded-2xl p-4"
+            style={{ backgroundColor: 'var(--pos-elevated)', border: '1px solid var(--pos-border)' }}
+          >
+            <p className="text-xs font-bold uppercase tracking-wide mb-1.5" style={{ color: 'var(--pos-tlabel)' }}>
               Thermische printer
             </p>
-            <p className="text-xs text-gray-500 dark:text-slate-500 leading-relaxed">
-              Gebruik <strong>Afdrukken / PDF</strong> en stel uw browser in op de geselecteerde labelgrootte zonder marges. Zwart-wit, hoog contrast layout is geoptimaliseerd voor thermische label-printers.
+            <p className="text-xs leading-relaxed" style={{ color: 'var(--pos-t3)' }}>
+              Gebruik <strong style={{ color: 'var(--pos-t2)' }}>Afdrukken / PDF</strong> en stel uw browser in op de geselecteerde labelgrootte zonder marges. Zwart-wit, hoog contrast layout is geoptimaliseerd voor thermische label-printers.
             </p>
           </div>
         </div>

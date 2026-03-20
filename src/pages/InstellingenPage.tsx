@@ -554,6 +554,7 @@ export function InstellingenPage() {
                 <Rij label="BTW-nummer"><input type="text" value={btwNummer} className={inputCls} onChange={(e) => update({ btwNummer: e.target.value })} placeholder="NL000000000B01" /></Rij>
                 <Rij label="KVK-nummer"><input type="text" value={kvkNummer} className={inputCls} onChange={(e) => update({ kvkNummer: e.target.value })} placeholder="12345678" /></Rij>
               </Groep>
+
             </>
           )}
 

@@ -8,9 +8,9 @@ export function POSPage() {
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden p-6 gap-5 bg-gray-50 dark:bg-slate-900">
+      <div className="flex-1 flex flex-col overflow-hidden px-6 pt-6 pb-0 gap-4" style={{ backgroundColor: 'var(--pos-panel)' }}>
         <CategoryBar actief={actieveCategorie} onChange={setActieveCategorie} />
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-6">
           <ProductGrid actieveCategorie={actieveCategorie} />
         </div>
       </div>

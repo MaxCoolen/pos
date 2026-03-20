@@ -1,6 +1,52 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:ital,opsz,wght@0,9..144,700;0,9..144,900;1,9..144,300&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ── Kleurentokens — licht (hoog contrast, helder) ─────────────────────────── */
+:root {
+  --pos-page:      #F1F5F9;
+  --pos-panel:     #E8EDF5;
+  --pos-card:      #FFFFFF;
+  --pos-elevated:  #F8FAFC;
+  --pos-input:     #FFFFFF;
+  --pos-sidebar:   #FFFFFF;
+  --pos-border:    #CBD5E1;
+  --pos-hover:     rgba(0, 0, 0, 0.06);
+  --pos-hover-str: rgba(0, 0, 0, 0.10);
+  --pos-t1:        #0F172A;
+  --pos-t2:        #334155;
+  --pos-t3:        #64748B;
+  --pos-t4:        #94A3B8;
+  --pos-tlabel:    #64748B;
+  --pos-amber:     #2563EB;
+  --pos-amber-h:   #1D4ED8;
+  --pos-amber-t:   #FFFFFF;
+  --pos-shadow-amber: rgba(37, 99, 235, 0.20);
+}
+
+/* ── Mercaro kleurentokens — donker ────────────────────────────────────────── */
+html.dark {
+  --pos-page:      #090B10;
+  --pos-panel:     #0E1015;
+  --pos-card:      #141820;
+  --pos-elevated:  #191C26;
+  --pos-input:     #191C26;
+  --pos-sidebar:   #0B0D14;
+  --pos-border:    rgba(255, 255, 255, 0.06);
+  --pos-hover:     rgba(255, 255, 255, 0.06);
+  --pos-hover-str: rgba(255, 255, 255, 0.10);
+  --pos-t1:        #F0EBE0;
+  --pos-t2:        #9CA3AF;
+  --pos-t3:        #4E5568;
+  --pos-t4:        #2E3448;
+  --pos-tlabel:    #363A50;
+  --pos-amber:     #60A5FA;
+  --pos-amber-h:   #3B82F6;
+  --pos-amber-t:   #0F172A;
+  --pos-shadow-amber: rgba(96, 165, 250, 0.25);
+}
 
 @layer base {
   * {
@@ -9,6 +55,9 @@
 
   body {
     @apply antialiased;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    background-color: var(--pos-page);
+    color: var(--pos-t1);
     overscroll-behavior: none;
     touch-action: manipulation;
   }

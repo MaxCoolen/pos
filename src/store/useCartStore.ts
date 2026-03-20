@@ -69,7 +69,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
         },
         { onConflict: 'cart_id,product_id' }
       )
-      .then(() => {})
+      .then(({ error }) => { if (error) console.error(error) })
   },
 
   verwijder: (productId) => {
@@ -84,7 +84,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       .delete()
       .eq('cart_id', cartId)
       .eq('product_id', productId)
-      .then(() => {})
+      .then(({ error }) => { if (error) console.error(error) })
   },
 
   updateAantal: (productId, aantal) => {
@@ -102,7 +102,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
       .update({ aantal })
       .eq('cart_id', cartId)
       .eq('product_id', productId)
-      .then(() => {})
+      .then(({ error }) => { if (error) console.error(error) })
   },
 
   selecteer: (productId) => set({ geselecteerdId: productId }),
@@ -111,7 +111,7 @@ export const useCartStore = create<CartStore>((set, get) => ({
     const { cartId } = get()
     set({ items: [], geselecteerdId: null })
     if (!supabase || !cartId) return
-    supabase.from('cart_items').delete().eq('cart_id', cartId).then(() => {})
+    supabase.from('cart_items').delete().eq('cart_id', cartId).then(({ error }) => { if (error) console.error(error) })
   },
 
   totaal: () =>

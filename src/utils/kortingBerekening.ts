@@ -50,7 +50,7 @@ export function berekenKortingen(
       }
     }
 
-    if (bedrag > 0.005) {
+    if (bedrag > 0) {
       regels.push({ kortingId: k.id, naam: k.naam, bedrag, type: k.type })
     }
   }
@@ -99,7 +99,7 @@ export function berekenItemKortingMap(
         }
       }
 
-      if (bedrag > 0.005) {
+      if (bedrag > 0) {
         map.set(item.product.id, (map.get(item.product.id) ?? 0) + bedrag)
       }
     }

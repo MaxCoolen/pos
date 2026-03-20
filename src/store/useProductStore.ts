@@ -24,6 +24,8 @@ function dbToProduct(row: any): Product {
     prijsType: (row.prijs_type as 'stuk' | 'kg') ?? 'stuk',
     btw: (row.btw as 0 | 9 | 21) ?? 9,
     kleur: (row.kleur as string) ?? undefined,
+    variaties: row.variaties ?? [],
+    extras: row.extras ?? [],
   }
 }
 
@@ -56,11 +58,17 @@ export const useProductStore = create<ProductStore>()(
               btw: product.btw,
               kleur: product.kleur ?? null,
               aktief: true,
+              variaties: JSON.stringify(product.variaties ?? []),
+              extras: JSON.stringify(product.extras ?? []),
             })
             .select()
             .single()
+          if (error) console.error(error)
           if (!error && data) {
-            set((state) => ({ producten: [...state.producten, dbToProduct(data)] }))
+            set((state) => {
+              if (state.producten.some((p) => p.id === data.id)) return state
+              return { producten: [...state.producten, dbToProduct(data)] }
+            })
           }
         } else {
           set((state) => ({
@@ -84,6 +92,8 @@ export const useProductStore = create<ProductStore>()(
           if (updates.prijsType !== undefined) dbUpdates.prijs_type = updates.prijsType
           if (updates.btw !== undefined) dbUpdates.btw = updates.btw
           if (updates.kleur !== undefined) dbUpdates.kleur = updates.kleur
+          if (updates.variaties !== undefined) dbUpdates.variaties = JSON.stringify(updates.variaties)
+          if (updates.extras !== undefined) dbUpdates.extras = JSON.stringify(updates.extras)
           await supabase.from('products').update(dbUpdates).eq('id', id)
         }
       },
@@ -106,7 +116,28 @@ export const useProductStore = create<ProductStore>()(
           .select('*')
           .eq('store_id', storeId)
           .eq('aktief', true)
-        if (!error && data) {
+        if (error) { console.error('[Producten] Fout bij laden:', error); return }
+
+        if (data.length === 0) {
+          // Eerste keer: schrijf demo-startdata éénmalig naar Supabase
+          console.log('[Producten] Startdata aangemaakt in Supabase')
+          const { data: inserted } = await supabase
+            .from('products')
+            .insert(DEMO_PRODUCTS.map((p) => ({
+              store_id: storeId,
+              naam: p.naam,
+              prijs: p.prijs,
+              categorie: p.categorie,
+              prijs_type: p.prijsType,
+              btw: p.btw,
+              kleur: p.kleur ?? null,
+              aktief: true,
+              variaties: '[]',
+              extras: '[]',
+            })))
+            .select()
+          if (inserted) set({ producten: inserted.map(dbToProduct) })
+        } else {
           set({ producten: data.map(dbToProduct) })
         }
 
@@ -118,7 +149,10 @@ export const useProductStore = create<ProductStore>()(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (payload: any) => {
               if (payload.eventType === 'INSERT' && payload.new.aktief) {
-                set((s) => ({ producten: [...s.producten, dbToProduct(payload.new)] }))
+                set((s) => {
+                  if (s.producten.some((p) => p.id === payload.new.id)) return s
+                  return { producten: [...s.producten, dbToProduct(payload.new)] }
+                })
               } else if (payload.eventType === 'UPDATE') {
                 if (!payload.new.aktief) {
                   set((s) => ({ producten: s.producten.filter((p) => p.id !== payload.new.id) }))

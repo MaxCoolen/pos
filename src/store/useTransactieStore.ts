@@ -53,15 +53,18 @@ function dbToTransactie(row: any, regels: any[]): Transactie {
 
 interface TransactieStore {
   transacties: Transactie[]
+  pendingSyncCount: number
   _channel: RealtimeChannel | null
   voegTransactieToe: (t: Transactie) => Promise<void>
   terugboekenTransactie: (id: string) => Promise<void>
   filterTransacties: (van: Date, tot: Date) => Transactie[]
+  flushPendingQueue: (storeId: string) => Promise<void>
   initialiseer: (storeId: string) => Promise<void>
 }
 
 export const useTransactieStore = create<TransactieStore>((set, get) => ({
   transacties: [],
+  pendingSyncCount: JSON.parse(localStorage.getItem('pos-pending-sync') ?? '[]').length,
   _channel: null,
 
   voegTransactieToe: async (transactie) => {
@@ -90,7 +93,15 @@ export const useTransactieStore = create<TransactieStore>((set, get) => ({
       .select('id')
       .single()
 
-    if (error || !dbTransactie) return
+    if (error || !dbTransactie) {
+      console.error('[Transactie] Supabase insert mislukt, naar offline queue:', error)
+      const queue = JSON.parse(localStorage.getItem('pos-pending-sync') ?? '[]') as Transactie[]
+      if (!queue.find((q) => q.id === transactie.id)) {
+        localStorage.setItem('pos-pending-sync', JSON.stringify([...queue, transactie]))
+        set((s) => ({ pendingSyncCount: s.pendingSyncCount + 1 }))
+      }
+      return
+    }
 
     // Write transaction lines
     if (transactie.regels.length > 0) {
@@ -111,7 +122,7 @@ export const useTransactieStore = create<TransactieStore>((set, get) => ({
     if (!origineel || origineel.isTerugGeboekt) return
 
     const terugboeking: Transactie = {
-      id: `TRX-REFUND-${Date.now()}`,
+      id: crypto.randomUUID(),
       tijdstip: new Date().toISOString(),
       regels: origineel.regels.map((r) => ({ ...r, prijs: -r.prijs })),
       totaal: -origineel.totaal,
@@ -137,6 +148,48 @@ export const useTransactieStore = create<TransactieStore>((set, get) => ({
     }
 
     await get().voegTransactieToe(terugboeking)
+  },
+
+  flushPendingQueue: async (storeId: string) => {
+    if (!supabase) return
+    const queue = JSON.parse(localStorage.getItem('pos-pending-sync') ?? '[]') as Transactie[]
+    if (queue.length === 0) return
+
+    const mislukt: Transactie[] = []
+    for (const t of queue) {
+      const { data, error } = await supabase
+        .from('transactions')
+        .insert({
+          id: t.id,
+          store_id: storeId,
+          employee_id: t.employeeId ?? null,
+          employee_naam: t.medewerker ?? null,
+          totaal: t.totaal,
+          btw: t.btw,
+          betaalmethode: t.betaalmethode ?? 'contant',
+          betaald_cents: t.betaaldCents ?? null,
+          wisselgeld_cents: t.wisselgeldCents ?? null,
+          is_terugboeking: t.isTerugboeking ?? false,
+          origineel_transactie_id: t.origineelTransactieId ?? null,
+          tijdstip: t.tijdstip,
+        })
+        .select('id')
+        .single()
+      if (error || !data) { mislukt.push(t); continue }
+      if (t.regels.length > 0) {
+        await supabase.from('transaction_lines').insert(
+          t.regels.map((r) => ({
+            transaction_id: data.id,
+            naam: r.naam,
+            categorie: r.categorie,
+            aantal: r.aantal,
+            prijs: r.prijs,
+          }))
+        )
+      }
+    }
+    localStorage.setItem('pos-pending-sync', JSON.stringify(mislukt))
+    set({ pendingSyncCount: mislukt.length })
   },
 
   filterTransacties: (van: Date, tot: Date) => {
@@ -211,5 +264,8 @@ export const useTransactieStore = create<TransactieStore>((set, get) => ({
       .subscribe()
 
     set({ _channel: channel })
+
+    await get().flushPendingQueue(storeId)
+    window.addEventListener('online', () => { void get().flushPendingQueue(storeId) })
   },
 }))

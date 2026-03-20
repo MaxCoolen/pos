@@ -3,14 +3,16 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  // Relatieve base voor Electron (file:// protocol); web gebruikt standaard '/'
+  base: process.env.ELECTRON_BUILD === 'true' ? './' : '/',
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'POS Kassasysteem',
-        short_name: 'POS',
-        description: 'Point of Sale kassasysteem',
+        name: 'Mercaro POS',
+        short_name: 'Mercaro',
+        description: 'Slimme kassasoftware voor de moderne ondernemer',
         theme_color: '#0f172a',
         background_color: '#0f172a',
         display: 'standalone',
